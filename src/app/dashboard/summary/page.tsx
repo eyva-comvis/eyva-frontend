@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 import type { SessionSummary } from "@/types/session";
 import { getLastSummary, sessionsApi } from "@/services/api/sessions";
+import AiInsightCard from "@/components/ai/AiInsightCard";
 
 const END_REASON_TEXT: Record<string, string> = {
   COMPLETED: "You finished your full focus time",
@@ -258,6 +259,13 @@ export default function SummaryPage() {
                 {(summary?.end_reason && END_REASON_TEXT[summary.end_reason]) || "Session ended by you"}
                 {summary ? ` · ${focusMinutes} min focused` : ""}
               </div>
+              {summary && (
+                <div className="mt-0.5 text-[10px] text-[#9A90AD]">
+                  {summary.blink_count} blink{summary.blink_count === 1 ? "" : "s"} ·{" "}
+                  {summary.eye_closure_count} long eye closure{summary.eye_closure_count === 1 ? "" : "s"} · about{" "}
+                  {Math.round(summary.estimated_drowsy_seconds / 60)} min with signs of drowsiness
+                </div>
+              )}
             </div>
           </div>
 
@@ -393,6 +401,15 @@ export default function SummaryPage() {
             </div>
           </div>
         </section>
+
+        {/* AI RECOMMENDATION (LLM backend) */}
+        {summary && (
+          <AiInsightCard
+            eyebrow="FROM EYVA'S AI COACH"
+            title="A few thoughts on this session"
+            load={() => sessionsApi.insights(summary.session_id)}
+          />
+        )}
 
         {/* 3. A MOMENT TO REFLECT CARD */}
         <section className="flex flex-col justify-between gap-4 rounded-[16px] border border-[#EAE4F3] bg-white px-6 py-4 shadow-[0_4px_14px_rgba(45,10,115,0.06)] sm:flex-row sm:items-center">

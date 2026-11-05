@@ -87,12 +87,14 @@ function LandingPage() {
         {/* Footer Terms */}
         <p className="mt-6 mb-0 text-[11px] leading-relaxed text-[#8C82A0]">
           By signing in, you agree to our{" "}
-          <Link
-            href="#"
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"}/terms`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="font-bold text-[#6E6285] hover:text-[#351080] hover:underline"
           >
             Terms of Service
-          </Link>{" "}
+          </a>{" "}
           and{" "}
           <a
             href={`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"}/privacy`}

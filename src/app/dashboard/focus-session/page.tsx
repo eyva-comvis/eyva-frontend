@@ -15,7 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useFocusMonitor } from "@/hooks/useFocusMonitor";
-import type { DrowsinessStatus } from "@/services/api/sessions";
+import { sessionsApi, type DrowsinessStatus } from "@/services/api/sessions";
 
 const WAVEFORM_HEIGHTS = [
   10, 18, 8, 22, 14, 10, 26, 16, 10, 20, 12, 24, 15, 9, 28, 18, 12, 22, 14, 10,
@@ -39,6 +39,15 @@ export default function FocusSessionPage() {
     null | "alert1" | "alert2" | "quick-reset"
   >(null);
   const [isEnding, setIsEnding] = useState(false);
+  const [sessionNumber, setSessionNumber] = useState("01");
+
+  // Nomor sesi = jumlah sesi pengguna (termasuk yang sedang berjalan)
+  useEffect(() => {
+    sessionsApi
+      .list(100)
+      .then(({ items }) => setSessionNumber(String(Math.max(items.length, 1)).padStart(2, "0")))
+      .catch(() => undefined);
+  }, []);
 
   const monitor = useFocusMonitor(
     videoRef,
@@ -297,7 +306,7 @@ export default function FocusSessionPage() {
               </span>
 
               <span className="text-[10px] font-semibold tracking-[0.08em] text-white/60 uppercase">
-                SESSION 01
+                SESSION {sessionNumber}
               </span>
             </div>
 

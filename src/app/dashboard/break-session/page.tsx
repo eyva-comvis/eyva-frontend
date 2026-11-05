@@ -5,12 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Droplet, EyeOff, Brain, Clock } from "lucide-react";
+import AiInsightCard from "@/components/ai/AiInsightCard";
+import { getActiveSession, sessionsApi } from "@/services/api/sessions";
 
 export default function BreakSessionPage() {
   const router = useRouter();
 
   const [totalBreakSeconds, setTotalBreakSeconds] = useState(5 * 60);
   const [secondsLeft, setSecondsLeft] = useState(5 * 60);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSessionId(getActiveSession()?.sessionId ?? null);
+  }, []);
 
   // Load break duration if configured, otherwise default to full 5 min (05:00)
   useEffect(() => {
@@ -283,6 +290,16 @@ export default function BreakSessionPage() {
               </span>
             </div>
           </section>
+
+          {/* AI break tip (LLM backend) */}
+          {sessionId && (
+            <AiInsightCard
+              className="mt-5"
+              eyebrow="EYVA'S BREAK TIP"
+              title="For this break"
+              load={() => sessionsApi.breakTip(sessionId)}
+            />
+          )}
 
           {/* 2. SECTION HEADER */}
           <div className="mt-7 mb-4 flex items-baseline justify-between">

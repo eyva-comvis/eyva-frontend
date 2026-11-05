@@ -30,6 +30,7 @@ export interface SessionListItem {
   id: string;
   title: string;
   reflection: "good" | "okay" | "tough" | null;
+  soundtrack: string | null;
   status: "ACTIVE" | "ENDED" | "INTERRUPTED";
   started_at: string;
   ended_at: string | null;
@@ -78,6 +79,30 @@ export const sessionsApi = {
     apiRequest(`/sessions/${sid}/reflection`, json({ mood })),
   list: (limit = 100, offset = 0) =>
     apiRequest<{ items: SessionListItem[] }>(`/sessions?limit=${limit}&offset=${offset}`),
+  /** Rekomendasi AI untuk halaman Summary (LLM; bila tidak tersedia, teks cadangan). */
+  insights: (sid: string) => apiRequest<InsightResult>(`/sessions/${sid}/insights`, { method: "POST" }),
+  /** Tip AI singkat untuk halaman Break (sesi harus masih berjalan). */
+  breakTip: (sid: string) => apiRequest<InsightResult>(`/sessions/${sid}/break-tip`, { method: "POST" }),
+};
+
+export interface InsightResult {
+  source: "llm" | "fallback";
+  text: string;
+  model: string | null;
+}
+
+export interface StatsResult {
+  days: number;
+  sessions: number;
+  total_focus_seconds: number;
+  alerts: number;
+  current_streak_days: number;
+  mood_counts: Record<string, number>;
+  insight: string;
+}
+
+export const statsApi = {
+  get: (days = 7) => apiRequest<StatsResult>(`/stats?days=${days}`),
 };
 
 /** Semua sesi milik pengguna (terbaru dulu), dibaca per halaman 100 sampai habis atau `max`. */

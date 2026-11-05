@@ -24,7 +24,9 @@ import {
   listAllSessions,
   sessionsApi,
   setActiveSession,
+  statsApi,
   type SessionListItem,
+  type StatsResult,
 } from "@/services/api/sessions";
 import { formatFocusTime, toHistoryItems } from "@/services/api/history";
 import type { StudySessionHistoryItem } from "@/types/session";
@@ -100,6 +102,7 @@ export default function HomePage() {
   const [musicEnabled, setMusicEnabled] = useState(true);
 
   const [stats, setStats] = useState<WeekStats | null>(null);
+  const [rhythm, setRhythm] = useState<StatsResult | null>(null);
 
   useEffect(() => {
     const cached = getCachedProfile();
@@ -118,6 +121,10 @@ export default function HomePage() {
     listAllSessions()
       .then((items) => setStats(weekStats(items)))
       .catch(() => setStats(weekStats([])));
+    statsApi
+      .get(14)
+      .then(setRhythm)
+      .catch(() => undefined);
   }, [router]);
 
   const handleContinueToCamera = () => {
@@ -392,12 +399,17 @@ export default function HomePage() {
 
               <div className="min-w-0 flex-1">
                 <div className="m-0 text-[12px] font-bold leading-snug text-[#2D0A73]">
-                  Your study rhytm
+                  Your study rhythm
+                  {rhythm && rhythm.current_streak_days > 0 && (
+                    <span className="ml-2 rounded-full bg-[#FFF238] px-2 py-0.5 text-[9.5px] font-extrabold text-[#351080]">
+                      {rhythm.current_streak_days}-day streak
+                    </span>
+                  )}
                 </div>
                 <p className="m-0 mt-0.5 text-[10.5px] leading-[1.35] text-[#7B728E]">
-                  You&apos;re doing great!
-                  <br />
-                  Keep taking breaks and listening to your body&apos;s signals.
+                  {rhythm
+                    ? rhythm.insight
+                    : "You're doing great! Keep taking breaks and listening to your body's signals."}
                 </p>
               </div>
 

@@ -53,6 +53,7 @@ export function toHistoryItems(items: SessionListItem[]): StudySessionHistoryIte
       yawnCount: i.yawn_count,
       status: historyStatusOf(i),
       reflectionMood: i.reflection ?? undefined,
+      soundtrack: i.soundtrack ?? undefined,
     };
   });
 }
