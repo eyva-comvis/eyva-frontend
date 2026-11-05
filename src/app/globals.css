@@ -1,0 +1,946 @@
+
+@import "tailwindcss";
+
+/* ========================================
+   1. EYVA DESIGN SYSTEM
+======================================== */
+
+:root {
+  --purple: #351080;
+  --purple2: #4b2194;
+  --lav: #f0eaff;
+  --yellow: #fff044;
+  --ink: #34245b;
+  --muted: #817995;
+
+  --background: #fffefa;
+  --white: #ffffff;
+  --border: #e9e4f0;
+  --success: #26804e;
+  --danger: #9f3d69;
+}
+
+/* ========================================
+   2. GLOBAL RESET
+======================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 14px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ========================================
+   3. BRAND
+======================================== */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--purple);
+  width: max-content;
+}
+
+.brand-icon {
+  background: var(--purple);
+  color: white;
+  padding: 7px;
+  border-radius: 7px;
+}
+
+.brand b {
+  font-size: 23px;
+  letter-spacing: 1px;
+}
+
+.brand small {
+  display: block;
+  font-size: 7px;
+  letter-spacing: 0.8px;
+}
+
+/* ========================================
+   4. DASHBOARD LAYOUT
+======================================== */
+
+.shell {
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 210px;
+  position: fixed;
+  inset: 0 auto 0 0;
+  border-right: 1px solid var(--border);
+  padding: 28px 20px;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  z-index: 2;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 48px;
+}
+
+.sidebar nav a,
+.side-bottom a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  color: #6c5b8d;
+  font-weight: 600;
+}
+
+.sidebar nav svg,
+.side-bottom svg {
+  width: 17px;
+}
+
+.sidebar nav a.active,
+.sidebar nav a:hover {
+  background: var(--purple);
+  color: white;
+}
+
+.side-bottom {
+  margin-top: auto;
+  display: grid;
+}
+
+.plant {
+  font-size: 62px;
+  color: var(--purple);
+  text-align: center;
+  margin-top: 18px;
+}
+
+.main {
+  margin-left: 210px;
+  padding: 25px clamp(24px, 6vw, 90px);
+  max-width: 1500px;
+}
+
+header {
+  height: 42px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff3b0;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border: 1px solid #f0df82;
+}
+
+/* ========================================
+   5. TYPOGRAPHY
+======================================== */
+
+h1,
+h2,
+h3,
+h4,
+p {
+  font-family: var(--font-inter), sans-serif;
+}
+
+h1 {
+  font-size: 29px;
+  margin: 9px 0;
+  color: var(--purple);
+  font-weight: 700;
+}
+
+h2 {
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 15px;
+  margin: 25px 0 12px;
+  font-weight: 700;
+}
+
+h3 a {
+  float: right;
+  color: var(--purple);
+  font-size: 12px;
+}
+
+.welcome {
+  text-align: center;
+  margin: 30px 0 28px;
+}
+
+.welcome h1 {
+  font-size: 29px;
+}
+
+.welcome p,
+.muted {
+  color: var(--muted);
+}
+
+.eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #a28e00;
+}
+
+/* ========================================
+   6. BUTTONS
+======================================== */
+
+.btn {
+  border: 0;
+  border-radius: 9px;
+  background: var(--purple);
+  color: white;
+  padding: 12px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.btn:hover {
+  filter: brightness(1.12);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn.dark {
+  background: var(--purple);
+}
+
+.btn.outline {
+  background: white;
+  border: 1px solid #ded6ed;
+  color: var(--purple);
+}
+
+.btn.pale {
+  background: var(--yellow);
+  color: var(--purple);
+}
+
+.btn.light {
+  background: #f4eefe;
+  color: var(--purple);
+}
+
+.btn.danger {
+  background: var(--danger);
+}
+
+.full {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--purple);
+  display: block;
+  margin: 12px auto;
+}
+
+/* ========================================
+   7. LANDING PAGE & AUTHENTICATION
+======================================== */
+
+.auth-page {
+  min-height: 100vh;
+  background: linear-gradient(110deg, #fff 55%, #fffef0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  position: relative;
+}
+
+.auth-top {
+  position: absolute;
+  top: 35px;
+  left: 6%;
+}
+
+.auth-card {
+  background: white;
+  width: min(440px, 100%);
+  padding: 34px;
+  border-radius: 17px;
+  box-shadow: 0 5px 22px #2d185018;
+  text-align: center;
+}
+
+.auth-card h1 {
+  font-size: 24px;
+}
+
+.auth-card p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.auth-card form {
+  text-align: left;
+}
+
+.auth-card label,
+.modal label,
+.profile label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 13px 0;
+  color: var(--ink);
+}
+
+.input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e7e0f1;
+  background: #f8f5fc;
+  border-radius: 9px;
+  padding: 0 10px;
+  margin-top: 7px;
+}
+
+.input svg {
+  width: 15px;
+  color: #8c7da8;
+}
+
+.input input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding: 12px 0;
+  width: 100%;
+}
+
+.auth-card > small {
+  display: block;
+  margin-top: 18px;
+  color: var(--muted);
+}
+
+.auth-card > small a {
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.modal-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--yellow);
+  display: grid;
+  place-items: center;
+  color: var(--purple);
+}
+
+/* ========================================
+   8. HOME PAGE
+======================================== */
+
+.hero {
+  background: var(--yellow);
+  border-radius: 17px;
+  padding: 25px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 145px;
+}
+
+.hero h2 {
+  margin: 8px 0 17px;
+  color: var(--purple);
+  font-size: 21px;
+}
+
+.mascot {
+  font-size: 68px;
+  color: var(--purple);
+  margin-right: 8%;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.stat {
+  background: var(--purple);
+  color: white;
+  border-radius: 13px;
+  padding: 18px;
+  min-height: 100px;
+}
+
+.stat svg {
+  float: left;
+  margin-right: 10px;
+}
+
+.stat span {
+  display: block;
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.stat b {
+  display: block;
+  font-size: 21px;
+  margin: 7px 0;
+}
+
+.stat small {
+  opacity: 0.7;
+}
+
+.insight,
+.session-row,
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 17px;
+  border-radius: 13px;
+  background: var(--lav);
+  margin: 14px 0;
+}
+
+.insight > svg:first-child {
+  color: var(--purple);
+}
+
+.insight p,
+.session-row p,
+.history-item p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.insight > svg:last-child,
+.session-row > svg:last-child,
+.history-item > svg:last-child {
+  margin-left: auto;
+}
+
+/* ========================================
+   9. MODAL & POPUP
+======================================== */
+
+.veil {
+  position: fixed;
+  inset: 0;
+  background: #2d1b4c55;
+  backdrop-filter: blur(5px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 10;
+}
+
+.modal {
+  position: relative;
+  background: white;
+  border-radius: 17px;
+  padding: 28px;
+  width: min(450px, 100%);
+  box-shadow: 0 15px 60px #24104a30;
+}
+
+.modal h2 {
+  color: var(--purple);
+  font-size: 21px;
+  margin: 12px 0 7px;
+}
+
+.modal p {
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.close {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  border: 0;
+  background: transparent;
+  color: #9b91a9;
+}
+
+.privacy {
+  background: var(--lav);
+  padding: 13px;
+  border-radius: 10px;
+  margin: 15px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.plain-input {
+  width: 100%;
+  border: 1px solid #e6deef;
+  border-radius: 9px;
+  padding: 12px;
+  background: #faf8fd;
+  margin-top: 7px;
+  outline-color: var(--purple);
+}
+
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ========================================
+   10. FOCUS SESSION
+======================================== */
+
+.focus-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.timer-card {
+  background: var(--purple);
+  color: white;
+  border-radius: 17px;
+  padding: 25px;
+  text-align: center;
+}
+
+.pill,
+.tag {
+  background: var(--yellow);
+  color: var(--purple);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.timer {
+  width: 230px;
+  height: 230px;
+  border: 7px solid #a78bd5;
+  border-radius: 50%;
+  margin: 32px auto 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer strong {
+  font-size: 48px;
+  margin: 8px;
+}
+
+.timer small {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 18px 0;
+}
+
+.camera-card,
+.panel {
+  border: 1px solid #e5deed;
+  border-radius: 15px;
+  padding: 22px;
+  box-shadow: 0 3px 12px #3110800b;
+}
+
+.camera-box {
+  height: 220px;
+  background: #100d16;
+  color: white;
+  border-radius: 10px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+}
+
+.camera-box p {
+  color: #c8bfd4;
+  font-size: 12px;
+}
+
+.status {
+  font-size: 11px;
+  color: #6c6380;
+}
+
+.status span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #52b788;
+  border-radius: 50%;
+}
+
+.metric {
+  background: #f7f4fc;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 15px 0;
+}
+
+.metric p {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ========================================
+   11. BREAK SESSION
+======================================== */
+
+.break-layout {
+  max-width: 900px;
+  margin: 55px auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.break-layout h1,
+.break-layout > p,
+.break-layout > ul,
+.break-layout > .eyebrow {
+  grid-column: 1;
+}
+
+.break-art {
+  grid-column: 1;
+  grid-row: 1 / 5;
+  background: var(--yellow);
+  border-radius: 50%;
+  width: 220px;
+  height: 220px;
+  display: grid;
+  place-items: center;
+  font-size: 100px;
+  justify-self: center;
+}
+
+.break-timer {
+  grid-column: 2;
+  background: #fff9a8;
+  border-radius: 14px;
+  padding: 25px;
+  text-align: center;
+}
+
+.break-timer strong {
+  display: block;
+  font-size: 42px;
+  color: var(--purple);
+  margin: 8px;
+}
+
+.break-layout > button {
+  grid-column: 2;
+}
+
+/* ========================================
+   12. SESSION SUMMARY
+======================================== */
+
+.summary {
+  text-align: center;
+  max-width: 850px;
+  margin: 55px auto;
+}
+
+.summary-card {
+  border: 1px solid #e7e0ef;
+  border-radius: 12px;
+  padding: 17px;
+  text-align: left;
+  margin: 30px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.summary .stat {
+  background: var(--lav);
+  color: var(--purple);
+}
+
+.summary .stat small {
+  color: var(--muted);
+}
+
+/* ========================================
+   13. HISTORY
+======================================== */
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.history-item {
+  background: white;
+  border: 1px solid #e9e2f0;
+}
+
+.history-item .tag {
+  margin-left: auto;
+  background: #edfaef;
+  color: #31734b;
+}
+
+/* ========================================
+   14. STATISTICS
+======================================== */
+
+.panel {
+  margin: 20px 0;
+}
+
+.bars {
+  height: 190px;
+  display: flex;
+  align-items: end;
+  justify-content: space-around;
+  gap: 18px;
+  padding: 15px;
+}
+
+.bars div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+}
+
+.bars span {
+  display: block;
+  width: 60%;
+  max-width: 45px;
+  background: var(--purple);
+  border-radius: 8px 8px 2px 2px;
+}
+
+.bars small {
+  color: var(--muted);
+}
+
+/* ========================================
+   15. EDIT PROFILE
+======================================== */
+
+.profile {
+  max-width: 600px;
+}
+
+.avatars {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 15px 0 25px;
+}
+
+.avatars button {
+  border: 1px solid #e5deed;
+  background: #faf8fd;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+}
+
+.avatars button.chosen {
+  border: 2px solid var(--purple);
+  background: var(--lav);
+}
+
+.success {
+  color: var(--success);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ========================================
+   16. RESPONSIVE DESIGN
+======================================== */
+
+@media (max-width: 800px) {
+  .sidebar {
+    width: 68px;
+    padding: 20px 8px;
+  }
+
+  .sidebar .brand span:not(.brand-icon),
+  .sidebar nav a {
+    font-size: 0;
+  }
+
+  .sidebar nav a {
+    justify-content: center;
+  }
+
+  .sidebar nav svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .side-bottom a {
+    font-size: 0;
+    justify-content: center;
+  }
+
+  .plant {
+    display: none;
+  }
+
+  .main {
+    margin-left: 68px;
+    padding: 20px;
+  }
+
+  .focus-grid,
+  .break-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .break-layout > * {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .break-art {
+    width: 150px;
+    height: 150px;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .main {
+    padding: 14px;
+  }
+
+  .hero {
+    padding: 20px;
+  }
+
+  .mascot {
+    font-size: 42px;
+  }
+
+  .focus-grid {
+    display: block;
+  }
+
+  .camera-card {
+    margin-top: 15px;
+  }
+
+  .two {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-top {
+    position: static;
+    margin-bottom: 30px;
+  }
+
+  .auth-page {
+    justify-content: center;
+  }
+
+  .timer {
+    width: 190px;
+    height: 190px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+  }
+}

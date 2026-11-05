@@ -27,3 +27,4 @@ UI currently uses demo data and local navigation. API integration belongs in `sr
 ## Important
 The supplied `eyva.zip` could not be opened as a valid ZIP archive in this environment (it has no readable central directory). This deliverable is a clean frontend implementation based on the supplied PDF designs and PRD, not a patch to the original source tree. Please re-upload the source archive if preserving its existing components is required.
 "# eyva-frontend" 
+# eyva-frontend
