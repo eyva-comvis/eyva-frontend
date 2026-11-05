@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { User, Mail, Lock, CheckCircle2, AlertCircle, Save } from "lucide-react";
+import { ApiError, errorMessage } from "@/services/api/client";
+import { USERNAME_HINT, USERNAME_PATTERN } from "@/lib/validation";
 
 interface ProfileInfoFormProps {
   currentUsername: string;
@@ -31,8 +33,8 @@ export default function ProfileInfoForm({
       return;
     }
 
-    if (trimmed.length < 2) {
-      setValidationError("Username should be at least 2 characters long.");
+    if (!USERNAME_PATTERN.test(trimmed)) {
+      setValidationError(USERNAME_HINT);
       setSaveSuccess(false);
       return;
     }
@@ -46,6 +48,12 @@ export default function ProfileInfoForm({
       setTimeout(() => {
         setSaveSuccess(false);
       }, 3500);
+    } catch (err) {
+      setValidationError(
+        err instanceof ApiError && err.status === 409
+          ? "That username is already taken. Please try another one."
+          : errorMessage(err)
+      );
     } finally {
       setIsSaving(false);
     }

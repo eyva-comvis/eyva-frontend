@@ -14,6 +14,8 @@ import {
   Sprout,
   ArrowRight,
 } from "lucide-react";
+import { useFocusMonitor } from "@/hooks/useFocusMonitor";
+import type { DrowsinessStatus } from "@/services/api/sessions";
 
 const WAVEFORM_HEIGHTS = [
   10, 18, 8, 22, 14, 10, 26, 16, 10, 20, 12, 24, 15, 9, 28, 18, 12, 22, 14, 10,
@@ -36,6 +38,20 @@ export default function FocusSessionPage() {
   const [activeAlert, setActiveAlert] = useState<
     null | "alert1" | "alert2" | "quick-reset"
   >(null);
+  const [isEnding, setIsEnding] = useState(false);
+
+  const monitor = useFocusMonitor(
+    videoRef,
+    isHydrated && !isPaused && cameraConnected && activeAlert === null && !isEnding,
+    () => router.replace("/dashboard/home")
+  );
+
+  // Alert dari model kantuk -> tampilkan modal yang sesuai
+  useEffect(() => {
+    if (!monitor.alert) return;
+    localStorage.setItem("eyva_focus_remaining_seconds", String(secondsLeftRef.current));
+    setActiveAlert(monitor.alert.level === 1 ? "alert1" : "alert2");
+  }, [monitor.alert]);
 
   // Load user avatar, session config, and any remaining seconds from pre-break state
   useEffect(() => {
@@ -123,9 +139,12 @@ export default function FocusSessionPage() {
     };
   }, []);
 
+  const secondsLeftRef = useRef(secondsLeft);
+  secondsLeftRef.current = secondsLeft;
+
   // Countdown timer (automatically pauses when manually paused OR when an alert modal is active)
   useEffect(() => {
-    if (!isHydrated || isPaused || activeAlert !== null) return;
+    if (!isHydrated || isPaused || activeAlert !== null || !monitor.ready || isEnding) return;
     const interval = setInterval(() => {
       setSecondsLeft((prev) => {
         const next = prev > 0 ? prev - 1 : 0;
@@ -135,12 +154,45 @@ export default function FocusSessionPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isHydrated, isPaused, activeAlert, totalSeconds]);
+  }, [isHydrated, isPaused, activeAlert, totalSeconds, monitor.ready, isEnding]);
 
-  const handleEndSession = () => {
+  const goToSummary = () => {
     localStorage.removeItem("eyva_focus_remaining_seconds");
     localStorage.removeItem("eyva_focus_total_seconds");
     router.push("/dashboard/summary");
+  };
+
+  const handleEndSession = async () => {
+    if (isEnding) return;
+    setIsEnding(true);
+    if (monitor.alert) await monitor.endFromAlert();
+    else await monitor.endSession("MANUAL");
+    goToSummary();
+  };
+
+  // Timer habis: blok belajar selesai, sesi berakhir normal
+  useEffect(() => {
+    if (!isHydrated || !monitor.ready || secondsLeft > 0 || isEnding) return;
+    setIsEnding(true);
+    monitor.completeSession().then(goToSummary);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft, isHydrated, monitor.ready]);
+
+  const togglePause = () => {
+    const next = !isPaused;
+    setIsPaused(next);
+    monitor.setPaused(next);
+  };
+
+  const statusLabel = (status: DrowsinessStatus | null, face: boolean): string => {
+    if (!cameraConnected) return "Camera is off · detection paused";
+    if (!monitor.ready) return "Preparing your session…";
+    if (isPaused) return "Paused";
+    if (status === null) return "Starting detection…";
+    if (!face) return "Face not detected";
+    if (status === "DROWSY_NEED_REST") return "Signs of drowsiness";
+    if (status === "POSSIBLE_DROWSINESS") return "Possible drowsiness";
+    return "You look focused";
   };
 
   const minutes = Math.floor(secondsLeft / 60);
@@ -214,6 +266,23 @@ export default function FocusSessionPage() {
           </h1>
         </div>
 
+        {monitor.error && (
+          <div
+            role="alert"
+            className="mx-auto mb-5 flex max-w-[980px] flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#F5DCE6] bg-[#FDF2F6] px-5 py-3 text-[11.5px] font-medium text-[#9F3D69]"
+          >
+            <span>{monitor.error}</span>
+            <Link href="/dashboard/home" className="font-bold !text-[#9F3D69] underline">
+              Back to Home
+            </Link>
+          </div>
+        )}
+        {!cameraConnected && (
+          <div className="mx-auto mb-5 max-w-[980px] rounded-[14px] border border-[#EAE4F3] bg-[#FAF8FF] px-5 py-3 text-[11.5px] text-[#5A5070]">
+            Eyva can&apos;t see your camera, so drowsiness detection is off. Allow camera access in your browser and reload this page to turn it on.
+          </div>
+        )}
+
         {/* MAIN TWO-COLUMN GRID */}
         <div className="mx-auto grid max-w-[980px] grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT CARD: PURPLE TIMER CARD */}
@@ -285,7 +354,8 @@ export default function FocusSessionPage() {
               <div className="mt-8 flex items-center justify-center gap-3.5">
                 <button
                   type="button"
-                  onClick={() => setIsPaused(!isPaused)}
+                  onClick={togglePause}
+                  disabled={!monitor.ready || isEnding}
                   style={{
                     color: "#5C438E",
                     fontWeight: 700,
@@ -302,6 +372,7 @@ export default function FocusSessionPage() {
                 <button
                   type="button"
                   onClick={handleEndSession}
+                  disabled={isEnding}
                   style={{
                     color: "#A34870",
                     fontWeight: 700,
@@ -309,7 +380,7 @@ export default function FocusSessionPage() {
                   }}
                   className="flex h-[38px] min-w-[92px] items-center justify-center rounded-[10px] border-0 bg-[#FDF0F5] px-4 text-[11px] !font-bold !text-[#A34870] shadow-xs transition hover:bg-[#FBE4EE] active:scale-[0.98]"
                 >
-                  End session
+                  {isEnding ? "Ending…" : "End session"}
                 </button>
               </div>
             </div>
@@ -346,53 +417,17 @@ export default function FocusSessionPage() {
                   </div>
                 </div>
 
-                {/* Demo Alert Buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      localStorage.setItem(
-                        "eyva_focus_remaining_seconds",
-                        String(secondsLeft)
-                      );
-                      localStorage.setItem(
-                        "eyva_focus_total_seconds",
-                        String(totalSeconds)
-                      );
-                      setActiveAlert("alert1");
-                    }}
-                    style={{
-                      color: "#2A1163",
-                      fontWeight: 700,
-                      fontSize: "8.5px",
-                    }}
-                    className="rounded-[8px] border-0 bg-[#FFF238] px-2.5 py-2 text-[8.5px] !font-bold !text-[#2A1163] transition hover:brightness-95"
-                  >
-                    Demo alert 1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      localStorage.setItem(
-                        "eyva_focus_remaining_seconds",
-                        String(secondsLeft)
-                      );
-                      localStorage.setItem(
-                        "eyva_focus_total_seconds",
-                        String(totalSeconds)
-                      );
-                      setActiveAlert("alert2");
-                    }}
-                    style={{
-                      color: "#FFFFFF",
-                      fontWeight: 700,
-                      fontSize: "8.5px",
-                    }}
-                    className="rounded-[8px] border-0 bg-[#F04444] px-2.5 py-2 text-[8.5px] !font-bold !text-white transition hover:brightness-95"
-                  >
-                    Demo alert 2
-                  </button>
-                </div>
+                {/* Live drowsiness status from the model */}
+                <span
+                  role="status"
+                  className={`rounded-[8px] px-2.5 py-1.5 text-[9px] font-bold ${
+                    monitor.status === "DROWSY_NEED_REST" || monitor.status === "POSSIBLE_DROWSINESS"
+                      ? "bg-[#FDF0F5] text-[#A34870]"
+                      : "bg-[#F2ECFF] text-[#2A1163]"
+                  }`}
+                >
+                  {statusLabel(monitor.status, monitor.faceDetected)}
+                </span>
               </div>
 
               {/* Lavender Outer Frame + Black Camera Box */}
@@ -416,7 +451,7 @@ export default function FocusSessionPage() {
                       />
                     </span>
                     <span>
-                      {cameraConnected ? "Camera connected" : "Camera preview"}
+                      {cameraConnected ? "Camera connected" : "Camera not available"}
                     </span>
                   </div>
                 </div>
@@ -549,7 +584,10 @@ export default function FocusSessionPage() {
             {/* Got it, I'll refocus button */}
             <button
               type="button"
-              onClick={() => setActiveAlert(null)}
+              onClick={async () => {
+                await monitor.acknowledge();
+                setActiveAlert(null);
+              }}
               style={{
                 color: "#FFFFFF",
                 fontWeight: 700,
@@ -634,7 +672,10 @@ export default function FocusSessionPage() {
             {/* Option 1: I'll do a quick reset */}
             <button
               type="button"
-              onClick={() => setActiveAlert("quick-reset")}
+              onClick={async () => {
+                await monitor.chooseReset();
+                setActiveAlert("quick-reset");
+              }}
               className="mt-5 flex w-full items-center justify-between rounded-[12px] border border-[#E4DCFA] bg-[#F2ECFF] px-4 py-3.5 text-left transition hover:bg-[#EAE1FF] active:scale-[0.99]"
             >
               <div className="flex items-center gap-3.5">
@@ -818,6 +859,7 @@ export default function FocusSessionPage() {
                   "eyva_focus_remaining_seconds",
                   String(secondsLeft)
                 );
+                monitor.startResetBreak();
                 setActiveAlert(null);
                 router.push("/dashboard/break-session");
               }}

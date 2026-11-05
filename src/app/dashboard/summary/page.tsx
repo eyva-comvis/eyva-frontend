@@ -4,10 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
+import type { SessionSummary } from "@/types/session";
+import { getLastSummary, sessionsApi } from "@/services/api/sessions";
+
+const END_REASON_TEXT: Record<string, string> = {
+  COMPLETED: "You finished your full focus time",
+  MANUAL: "Session ended by you",
+  ENDED_AFTER_SECOND_ALERT: "Ended after a drowsiness check-in",
+};
 
 export default function SummaryPage() {
   const [avatarSrc, setAvatarSrc] = useState("/images/MaleAva.svg");
   const [sessionTitle, setSessionTitle] = useState("Study Session");
+  const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [selectedFeeling, setSelectedFeeling] = useState<
     "good" | "okay" | "tough" | null
   >(null);
@@ -26,6 +35,9 @@ export default function SummaryPage() {
 
     setSelectedFeeling(feeling);
     setPopupPhase("entering");
+    if (summary) {
+      sessionsApi.reflect(summary.session_id, feeling).catch(() => undefined);
+    }
 
     // Smoothly collapse the other two unselected cards while popup is open
     setTimeout(() => {
@@ -113,6 +125,12 @@ export default function SummaryPage() {
       setAvatarSrc(savedAvatar);
     }
 
+    const last = getLastSummary();
+    if (last) {
+      setSummary(last);
+      setSessionTitle(last.title || "Study Session");
+      return;
+    }
     const savedConfig = localStorage.getItem("eyva_session_config");
     if (savedConfig) {
       try {
@@ -125,6 +143,13 @@ export default function SummaryPage() {
       }
     }
   }, []);
+
+  const yawns = summary?.yawn_count ?? 0;
+  const alerts = (summary?.alert_1_count ?? 0) + (summary?.alert_2_count ?? 0);
+  const breakMinutes = Math.round(
+    ((summary?.total_break_seconds ?? 0) + (summary?.total_pause_seconds ?? 0)) / 60
+  );
+  const focusMinutes = Math.round((summary?.total_study_seconds ?? 0) / 60);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#FFFFFF] via-[#FFFEF9] to-[#FFFDF2] pl-6 pr-8 pt-6 pb-12 sm:pr-12 text-[#351080]">
@@ -230,7 +255,8 @@ export default function SummaryPage() {
                 {sessionTitle}
               </div>
               <div className="mt-0.5 text-[10.5px] text-[#7B728E]">
-                Session ended by you
+                {(summary?.end_reason && END_REASON_TEXT[summary.end_reason]) || "Session ended by you"}
+                {summary ? ` · ${focusMinutes} min focused` : ""}
               </div>
             </div>
           </div>
@@ -251,7 +277,7 @@ export default function SummaryPage() {
             <div className="my-3.5 flex items-center justify-between">
               <div className="flex items-baseline gap-1 text-[#2A1163]">
                 <strong className="text-[28px] font-extrabold leading-none">
-                  2
+                  {yawns}
                 </strong>
                 <span className="text-[12px] font-bold">X</span>
               </div>
@@ -306,7 +332,7 @@ export default function SummaryPage() {
             <div className="my-3.5 flex items-center justify-between">
               <div className="flex items-baseline gap-1 text-[#2A1163]">
                 <strong className="text-[28px] font-extrabold leading-none">
-                  2
+                  {alerts}
                 </strong>
                 <span className="text-[12px] font-bold">X</span>
               </div>
@@ -333,7 +359,7 @@ export default function SummaryPage() {
             <div className="my-3.5 flex items-center justify-between">
               <div className="flex items-baseline gap-1 text-[#2A1163]">
                 <strong className="text-[28px] font-extrabold leading-none">
-                  5
+                  {breakMinutes}
                 </strong>
                 <span className="text-[12px] font-bold">min</span>
               </div>

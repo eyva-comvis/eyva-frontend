@@ -18,8 +18,9 @@ import {
   calculateHistorySummary,
   filterSessionHistory,
   getSessionHistory,
-  MOCK_SESSION_HISTORY,
 } from "@/services/api/history";
+import { getCachedProfile } from "@/services/api/profile";
+import { errorMessage } from "@/services/api/client";
 import HistorySummaryCards from "@/components/history/HistorySummaryCards";
 import SessionHistoryList from "@/components/history/SessionHistoryList";
 import SessionDetailModal from "@/components/history/SessionDetailModal";
@@ -27,24 +28,31 @@ import SessionDetailModal from "@/components/history/SessionDetailModal";
 export default function HistoryPage() {
   const [avatarSrc, setAvatarSrc] = useState("/images/MaleAva.svg");
   const [sessions, setSessions] =
-    useState<StudySessionHistoryItem[]>(MOCK_SESSION_HISTORY);
+    useState<StudySessionHistoryItem[]>([]);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState("");
   const [periodFilter, setPeriodFilter] = useState<HistoryPeriodFilter>("all");
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
   const [selectedSession, setSelectedSession] =
     useState<StudySessionHistoryItem | null>(null);
 
   useEffect(() => {
-    const savedAvatar = localStorage.getItem("eyva_avatar");
-    if (savedAvatar) {
-      setAvatarSrc(savedAvatar);
-    }
+    setAvatarSrc(getCachedProfile().avatarSrc);
 
     let isMounted = true;
-    getSessionHistory().then((data) => {
-      if (isMounted) {
-        setSessions(data);
-      }
-    });
+    getSessionHistory()
+      .then((data) => {
+        if (isMounted) {
+          setSessions(data);
+          setLoadState("ready");
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setLoadError(errorMessage(err));
+          setLoadState("error");
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -222,6 +230,17 @@ export default function HistoryPage() {
         <div className="mx-auto max-w-[960px]">
           {/* 1. Three Summary Cards */}
           <HistorySummaryCards stats={summaryStats} />
+
+          {loadState === "loading" && (
+            <p className="mt-5 text-center text-[11.5px] text-[#7B728E]" role="status">
+              Loading your sessions…
+            </p>
+          )}
+          {loadState === "error" && (
+            <p className="mt-5 text-center text-[11.5px] font-medium text-[#9F3D69]" role="alert">
+              {loadError}
+            </p>
+          )}
 
           {/* 2. Your Session History Card (Filters + Grouped List + Load More) */}
           <SessionHistoryList

@@ -256,7 +256,7 @@ export default function BreakSessionPage() {
               }}
               className="absolute right-3.5 top-3.5 rounded-[7px] border border-[#2A1163]/15 bg-white/75 px-2.5 py-1 text-[8.5px] !font-bold !text-[#2A1163] backdrop-blur-xs transition hover:bg-white active:scale-95"
             >
-              Skip demo →
+              Skip break →
             </button>
 
             <div className="text-[9.5px] font-semibold tracking-[0.06em] text-[#5E5278] uppercase">

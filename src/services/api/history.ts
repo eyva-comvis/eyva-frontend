@@ -5,156 +5,60 @@ import type {
   StudySessionHistoryItem,
 } from "@/types/session";
 
-/**
- * Separated dummy data for Your Session History.
- * Can be replaced directly by `apiRequest<StudySessionHistoryItem[]>('/sessions/history')`
- * once the backend endpoint is connected.
- */
-export const MOCK_SESSION_HISTORY: StudySessionHistoryItem[] = [
-  {
-    id: "sess-08",
-    sessionNumber: "#08",
-    title: "Study Session #08",
-    date: "2026-11-05",
-    displayDate: "Today, Nov 5",
-    dateGroup: "Today",
-    startTime: "10:30 AM",
-    endTime: "11:00 AM",
-    focusDurationMinutes: 25,
-    breakDurationMinutes: 5,
-    alertCount: 2,
-    yawnCount: 2,
-    status: "Completed",
-    soundtrack: "Soft Piano",
-    reflectionMood: "good",
-  },
-  {
-    id: "sess-07",
-    sessionNumber: "#07",
-    title: "Study Session #07",
-    date: "2026-11-04",
-    displayDate: "Yesterday, Nov 4",
-    dateGroup: "Yesterday",
-    startTime: "08:15 PM",
-    endTime: "09:10 PM",
-    focusDurationMinutes: 45,
-    breakDurationMinutes: 10,
-    alertCount: 1,
-    yawnCount: 1,
-    status: "Completed",
-    soundtrack: "Ambient Rain",
-    reflectionMood: "good",
-  },
-  {
-    id: "sess-06",
-    sessionNumber: "#06",
-    title: "Study Session #06",
-    date: "2026-11-02",
-    displayDate: "Nov 2, 2026",
-    dateGroup: "Earlier",
-    startTime: "02:00 PM",
-    endTime: "02:35 PM",
-    focusDurationMinutes: 30,
-    breakDurationMinutes: 5,
-    alertCount: 0,
-    yawnCount: 0,
-    status: "Interrupted",
-    soundtrack: "Lo-Fi Study Beats",
-    reflectionMood: "okay",
-  },
-  {
-    id: "sess-05",
-    sessionNumber: "#05",
-    title: "Study Session #05",
-    date: "2026-11-01",
-    displayDate: "Nov 1, 2026",
-    dateGroup: "Earlier",
-    startTime: "04:10 PM",
-    endTime: "04:40 PM",
-    focusDurationMinutes: 25,
-    breakDurationMinutes: 5,
-    alertCount: 1,
-    yawnCount: 2,
-    status: "Completed",
-    soundtrack: "Soft Piano",
-    reflectionMood: "good",
-  },
-  {
-    id: "sess-04",
-    sessionNumber: "#04",
-    title: "Study Session #04",
-    date: "2026-10-29",
-    displayDate: "Oct 29, 2026",
-    dateGroup: "Earlier",
-    startTime: "07:30 PM",
-    endTime: "08:25 PM",
-    focusDurationMinutes: 45,
-    breakDurationMinutes: 10,
-    alertCount: 2,
-    yawnCount: 3,
-    status: "Completed",
-    soundtrack: "White Noise",
-    reflectionMood: "okay",
-  },
-  {
-    id: "sess-03",
-    sessionNumber: "#03",
-    title: "Study Session #03",
-    date: "2026-10-25",
-    displayDate: "Oct 25, 2026",
-    dateGroup: "Earlier",
-    startTime: "01:20 PM",
-    endTime: "01:40 PM",
-    focusDurationMinutes: 15,
-    breakDurationMinutes: 5,
-    alertCount: 0,
-    yawnCount: 1,
-    status: "Interrupted",
-    soundtrack: "Soft Piano",
-    reflectionMood: "tough",
-  },
-  {
-    id: "sess-02",
-    sessionNumber: "#02",
-    title: "Study Session #02",
-    date: "2026-10-19",
-    displayDate: "Oct 19, 2026",
-    dateGroup: "Earlier",
-    startTime: "09:00 AM",
-    endTime: "09:30 AM",
-    focusDurationMinutes: 25,
-    breakDurationMinutes: 5,
-    alertCount: 1,
-    yawnCount: 1,
-    status: "Completed",
-    soundtrack: "Ambient Rain",
-    reflectionMood: "good",
-  },
-  {
-    id: "sess-01",
-    sessionNumber: "#01",
-    title: "Study Session #01",
-    date: "2026-10-12",
-    displayDate: "Oct 12, 2026",
-    dateGroup: "Earlier",
-    startTime: "03:45 PM",
-    endTime: "04:15 PM",
-    focusDurationMinutes: 25,
-    breakDurationMinutes: 5,
-    alertCount: 0,
-    yawnCount: 0,
-    status: "Completed",
-    soundtrack: "Lo-Fi Study Beats",
-    reflectionMood: "good",
-  },
-];
+import { listAllSessions, type SessionListItem } from "./sessions";
 
-/**
- * Fetches session history list.
- * Currently returns separated dummy data; ready to be swapped with REST API call.
- */
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function localDateKey(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function dateGroupOf(d: Date, now = new Date()): StudySessionHistoryItem["dateGroup"] {
+  const today = localDateKey(now);
+  const yesterday = localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  const key = localDateKey(d);
+  return key === today ? "Today" : key === yesterday ? "Yesterday" : "Earlier";
+}
+
+const timeFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+const dateFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/** Selesai normal (timer habis atau diakhiri pengguna) = Completed; berhenti karena alert/server = Interrupted. */
+export function historyStatusOf(item: SessionListItem): StudySessionHistoryItem["status"] {
+  if (item.status === "INTERRUPTED") return "Interrupted";
+  return item.end_reason === "ENDED_AFTER_SECOND_ALERT" ? "Interrupted" : "Completed";
+}
+
+/** Ubah daftar sesi backend (terbaru dulu) ke bentuk yang dipakai halaman History. */
+export function toHistoryItems(items: SessionListItem[]): StudySessionHistoryItem[] {
+  const finished = items.filter((i) => i.status !== "ACTIVE");
+  const total = finished.length;
+  return finished.map((i, idx) => {
+    const start = new Date(i.started_at);
+    const end = i.ended_at ? new Date(i.ended_at) : null;
+    const group = dateGroupOf(start);
+    const number = pad(total - idx);
+    return {
+      id: i.id,
+      sessionNumber: `#${number}`,
+      title: i.title || `Study Session #${number}`,
+      date: localDateKey(start),
+      displayDate: group === "Earlier" ? dateFmt.format(start) : `${group}, ${dateFmt.format(start).replace(/, \d{4}$/, "")}`,
+      dateGroup: group,
+      startTime: timeFmt.format(start),
+      endTime: end ? timeFmt.format(end) : "—",
+      focusDurationMinutes: Math.round(i.total_study_seconds / 60),
+      breakDurationMinutes: Math.round(i.total_break_seconds / 60),
+      alertCount: i.alert_1_count + i.alert_2_count,
+      yawnCount: i.yawn_count,
+      status: historyStatusOf(i),
+      reflectionMood: i.reflection ?? undefined,
+    };
+  });
+}
+
 export async function getSessionHistory(): Promise<StudySessionHistoryItem[]> {
-  return MOCK_SESSION_HISTORY;
+  return toHistoryItems(await listAllSessions());
 }
 
 /**
@@ -165,7 +69,7 @@ export function filterSessionHistory(
   period: HistoryPeriodFilter,
   status: HistoryStatusFilter
 ): StudySessionHistoryItem[] {
-  const referenceDate = new Date("2026-11-05T23:59:59");
+  const referenceDate = new Date();
 
   return sessions.filter((session) => {
     // Status filter

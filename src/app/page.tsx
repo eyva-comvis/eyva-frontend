@@ -3,8 +3,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import AuthGate from "@/components/auth/AuthGate";
+import { startGoogleLogin } from "@/services/api/auth";
 
-export default function LandingPage() {
+function LandingPage() {
   return (
     <main className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-b from-[#FFFFFF] via-[#FFFEF9] to-[#FFFDF0] px-4 py-10">
       {/* Logo Eyva di atas card */}
@@ -33,8 +35,9 @@ export default function LandingPage() {
         </p>
 
         {/* Continue with Google */}
-        <Link
-          href="/register"
+        <button
+          type="button"
+          onClick={startGoogleLogin}
           className="flex w-full items-center justify-center gap-2.5 rounded-[10px] border border-[#E6E0F0] bg-white py-3 px-4 text-[13px] font-bold text-[#351080] transition hover:bg-[#FAF8FF] active:scale-[0.99]"
         >
           <svg
@@ -54,7 +57,7 @@ export default function LandingPage() {
             />
           </svg>
           <span>Continue with Google</span>
-        </Link>
+        </button>
 
         {/* Divider "or" */}
         <div className="my-4 flex items-center gap-3">
@@ -91,12 +94,14 @@ export default function LandingPage() {
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link
-            href="#"
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"}/privacy`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="font-bold text-[#6E6285] hover:text-[#351080] hover:underline"
           >
             Privacy Policy
-          </Link>
+          </a>
           .
         </p>
       </section>
@@ -104,3 +109,11 @@ export default function LandingPage() {
   );
 }
 
+
+export default function LandingRoute() {
+  return (
+    <AuthGate require="guest">
+      <LandingPage />
+    </AuthGate>
+  );
+}

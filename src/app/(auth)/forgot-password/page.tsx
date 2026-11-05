@@ -4,11 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
+import AuthGate from "@/components/auth/AuthGate";
+import { errorMessage } from "@/services/api/client";
+import { forgotPassword, resetPassword, verifyResetCode } from "@/services/api/auth";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH } from "@/lib/validation";
 
 type ForgotPasswordStep = "email" | "verify" | "reset";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordPage() {
   const router = useRouter();
+  const [resetToken, setResetToken] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [step, setStep] = useState<ForgotPasswordStep>("email");
   const [email, setEmail] = useState("");
@@ -30,14 +36,22 @@ export default function ForgotPasswordPage() {
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   // Step 1: Submit Email -> Move to Verification Code
-  const handleEmailSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email.trim()) {
       setError("Please enter your email address.");
       return;
     }
     setError("");
-    setStep("verify");
+    setIsSubmitting(true);
+    try {
+      await forgotPassword(email.trim());
+      setStep("verify");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Step 2: Handle 6-Digit OTP Input
@@ -78,7 +92,7 @@ export default function ForgotPasswordPage() {
     otpInputRefs.current[nextIndex]?.focus();
   };
 
-  const handleVerifySubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleVerifySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fullCode = otpDigits.join("");
     if (fullCode.length < 6) {
@@ -86,24 +100,37 @@ export default function ForgotPasswordPage() {
       return;
     }
     setError("");
-    setStep("reset");
+    setIsSubmitting(true);
+    try {
+      setResetToken(await verifyResetCode(email.trim(), fullCode));
+      setStep("reset");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleResendCode = () => {
+  const handleResendCode = async () => {
     setOtpDigits(["", "", "", "", "", ""]);
     setError("");
-    setResendSuccess(true);
     otpInputRefs.current[0]?.focus();
-    setTimeout(() => {
-      setResendSuccess(false);
-    }, 3000);
+    try {
+      await forgotPassword(email.trim());
+      setResendSuccess(true);
+      setTimeout(() => {
+        setResendSuccess(false);
+      }, 3000);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   };
 
   // Step 3: Submit New Password -> Redirect to Login
-  const handleResetSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleResetSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (password.length < 6) {
-      setError("Password should be at least 6 characters long.");
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(PASSWORD_HINT);
       return;
     }
     if (password !== confirmPassword) {
@@ -111,7 +138,14 @@ export default function ForgotPasswordPage() {
       return;
     }
     setError("");
-    router.push("/login");
+    setIsSubmitting(true);
+    try {
+      await resetPassword(resetToken, password);
+      router.push("/login?reset=1");
+    } catch (err) {
+      setError(errorMessage(err));
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -189,10 +223,11 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
+              disabled={isSubmitting}
               style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "13px" }}
               className="mt-2 flex w-full items-center justify-center rounded-full bg-[#351080] py-3 px-4 text-[13px] !font-bold !text-white transition hover:bg-[#43189E] active:scale-[0.99]"
             >
-              Send verification code
+              {isSubmitting ? "Sending…" : "Send verification code"}
             </button>
           </form>
         )}
@@ -254,17 +289,18 @@ export default function ForgotPasswordPage() {
               {resendSuccess && (
                 <p className="mt-2 mb-0 inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#351080]">
                   <CheckCircle2 size={13} strokeWidth={2.3} />
-                  <span>A new verification code has been sent to your Gmail.</span>
+                  <span>A new verification code has been sent to your email.</span>
                 </p>
               )}
             </div>
 
             <button
               type="submit"
+              disabled={isSubmitting}
               style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "13px" }}
               className="mt-2 flex w-full items-center justify-center rounded-full bg-[#351080] py-3 px-4 text-[13px] !font-bold !text-white transition hover:bg-[#43189E] active:scale-[0.99]"
             >
-              Verify code
+              {isSubmitting ? "Checking…" : "Verify code"}
             </button>
 
             <p className="m-0 text-center text-[11.5px] text-[#7B728E]">
@@ -363,10 +399,11 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
+              disabled={isSubmitting}
               style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "13px" }}
               className="mt-2 flex w-full items-center justify-center rounded-full bg-[#351080] py-3 px-4 text-[13px] !font-bold !text-white transition hover:bg-[#43189E] active:scale-[0.99]"
             >
-              Reset password
+              {isSubmitting ? "Saving…" : "Reset password"}
             </button>
           </form>
         )}
@@ -384,5 +421,13 @@ export default function ForgotPasswordPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function ForgotPasswordRoute() {
+  return (
+    <AuthGate require="guest">
+      <ForgotPasswordPage />
+    </AuthGate>
   );
 }

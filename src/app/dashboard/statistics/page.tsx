@@ -18,6 +18,8 @@ import {
   buildStatisticsDashboardData,
   getStatisticsByPeriod,
 } from "@/services/api/statistics";
+import { getCachedProfile } from "@/services/api/profile";
+import { errorMessage as describeError } from "@/services/api/client";
 import StatisticsSummaryCards from "@/components/statistics/StatisticsSummaryCards";
 import StatisticsPeriodFilter from "@/components/statistics/StatisticsPeriodFilter";
 import FocusTimeOverviewChart from "@/components/statistics/FocusTimeOverviewChart";
@@ -31,7 +33,7 @@ export default function StatisticsPage() {
   const [dashboardData, setDashboardData] = useState<StatisticsDashboardData>(
     () => buildStatisticsDashboardData("weekly")
   );
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadStatistics = useCallback(
@@ -41,9 +43,9 @@ export default function StatisticsPage() {
       try {
         const data = await getStatisticsByPeriod(selectedPeriod);
         setDashboardData(data);
-      } catch {
+      } catch (err) {
         setErrorMessage(
-          "Unable to load your study statistics right now. Please try again."
+          `Unable to load your study statistics right now. ${describeError(err)}`
         );
       } finally {
         setIsLoading(false);
@@ -53,10 +55,7 @@ export default function StatisticsPage() {
   );
 
   useEffect(() => {
-    const savedAvatar = localStorage.getItem("eyva_avatar");
-    if (savedAvatar) {
-      setAvatarSrc(savedAvatar);
-    }
+    setAvatarSrc(getCachedProfile().avatarSrc);
   }, []);
 
   useEffect(() => {

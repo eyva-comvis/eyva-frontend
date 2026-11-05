@@ -2,19 +2,45 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import AuthGate from "@/components/auth/AuthGate";
+import { ApiError, errorMessage } from "@/services/api/client";
+import { login, startGoogleLogin } from "@/services/api/auth";
+import { landingPathAfterLogin } from "@/services/api/profile";
 
-export default function LoginPage() {
+function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("expired")) setNotice("Your session has ended. Please log in again.");
+    if (params.get("reset")) setNotice("Password updated. Log in with your new password.");
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    router.push("/dashboard/home");
+    setError("");
+    setIsSubmitting(true);
+    try {
+      await login(email.trim(), password);
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(next && next.startsWith("/dashboard") ? next : await landingPathAfterLogin());
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        router.push(`/register?verify=${encodeURIComponent(email.trim())}`);
+        return;
+      }
+      setError(errorMessage(err));
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -91,22 +117,30 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {(error || notice) && (
+            <p
+              role={error ? "alert" : "status"}
+              className={`m-0 text-[11.5px] font-medium ${error ? "text-[#9F3D69]" : "text-[#351080]"}`}
+            >
+              {error || notice}
+            </p>
+          )}
+
           {/* Log in Button */}
           <button
             type="submit"
+            disabled={isSubmitting}
             style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "13px" }}
             className="mt-2 flex w-full items-center justify-center rounded-full bg-[#351080] py-3 px-4 text-[13px] !font-bold !text-white transition hover:bg-[#43189E] active:scale-[0.99]"
           >
-            Log in
+            {isSubmitting ? "Logging in…" : "Log in"}
           </button>
         </form>
 
         {/* Continue with Google */}
         <button
           type="button"
-          onClick={() =>
-            alert("Google authentication will be connected later.")
-          }
+          onClick={startGoogleLogin}
           style={{ fontWeight: 700, fontSize: "13px" }}
           className="mt-3.5 flex w-full items-center justify-center gap-2.5 rounded-[10px] border border-[#E6E0F0] bg-white py-3 px-4 text-[13px] !font-bold text-[#351080] transition hover:bg-[#FAF8FF] active:scale-[0.99]"
         >
@@ -142,5 +176,13 @@ export default function LoginPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function LoginRoute() {
+  return (
+    <AuthGate require="guest">
+      <LoginPage />
+    </AuthGate>
   );
 }

@@ -4,18 +4,25 @@ export type DrowsinessStatus =
   | "DROWSY_NEED_REST"
   | "UNCERTAIN/NO_FACE";
 
+/** Ringkasan sesi dari backend (POST /sessions/{id}/end atau GET /sessions/{id}/summary). */
 export interface SessionSummary {
-  id: string;
-  started_at: string;
-  ended_at?: string;
+  session_id: string;
+  status: string;
+  title: string;
+  reflection: "good" | "okay" | "tough" | null;
+  started_at: string | null;
+  end_reason: string | null;
   total_study_seconds: number;
   total_break_seconds: number;
+  total_pause_seconds: number;
+  blocks_completed: number;
+  blocks_stopped_early: number;
+  blink_count: number;
+  yawn_count: number;
+  eye_closure_count: number;
+  estimated_drowsy_seconds: number;
   alert_1_count: number;
   alert_2_count: number;
-  blink_count?: number;
-  yawn_count?: number;
-  eye_closure_count?: number;
-  end_reason?: string;
 }
 
 export interface SessionConfig {

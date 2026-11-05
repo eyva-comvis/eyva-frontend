@@ -1,4 +1,6 @@
 import type { AvatarOption, AvatarPath, UserProfile } from "@/types/profile";
+import { apiRequest } from "./client";
+import { logout } from "./auth";
 
 export const AVATAR_OPTIONS: AvatarOption[] = [
   {
@@ -17,67 +19,82 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   username: "Username",
-  email: "username@gmail.com",
+  email: "",
   avatarSrc: "/images/MaleAva.svg",
 };
 
-/**
- * Loads the current user profile from localStorage (fallback to dummy data).
- * Ready to be swapped with `apiRequest<UserProfile>('/users/me')` when backend is connected.
- */
-export async function getUserProfile(): Promise<UserProfile> {
-  if (typeof window === "undefined") {
+interface ProfileResponse {
+  user_id: string;
+  email: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  avatar_selected: boolean;
+}
+
+export interface LoadedProfile extends UserProfile {
+  /** false = pengguna belum memilih avatar Eyva (mis. baru daftar lewat Google) */
+  avatarSelected: boolean;
+}
+
+function toProfile(r: ProfileResponse): LoadedProfile {
+  const profile: LoadedProfile = {
+    username: r.username || r.email?.split("@")[0] || "Friend",
+    email: r.email ?? "",
+    avatarSrc: r.avatar_selected ? (r.avatar_url as AvatarPath) : DEFAULT_USER_PROFILE.avatarSrc,
+    avatarSelected: r.avatar_selected,
+  };
+  // Cache untuk tampilan cepat saat halaman pertama kali dirender
+  try {
+    localStorage.setItem("eyva_username", profile.username);
+    localStorage.setItem("eyva_avatar", profile.avatarSrc);
+    localStorage.setItem("eyva_email", profile.email);
+  } catch {
+    // abaikan
+  }
+  return profile;
+}
+
+/** Profil tersimpan di cache lokal (tanpa jaringan), untuk render awal. */
+export function getCachedProfile(): UserProfile {
+  if (typeof window === "undefined") return DEFAULT_USER_PROFILE;
+  try {
+    return {
+      username: localStorage.getItem("eyva_username") || DEFAULT_USER_PROFILE.username,
+      email: localStorage.getItem("eyva_email") || "",
+      avatarSrc:
+        (localStorage.getItem("eyva_avatar") as AvatarPath | null) || DEFAULT_USER_PROFILE.avatarSrc,
+    };
+  } catch {
     return DEFAULT_USER_PROFILE;
   }
-
-  const savedUsername =
-    localStorage.getItem("eyva_username")?.trim() ||
-    DEFAULT_USER_PROFILE.username;
-  const rawAvatar = localStorage.getItem("eyva_avatar");
-  const avatarSrc: AvatarPath =
-    rawAvatar === "/images/FemaleAva.svg" || rawAvatar === "/images/MaleAva.svg"
-      ? rawAvatar
-      : DEFAULT_USER_PROFILE.avatarSrc;
-
-  const savedEmail = localStorage.getItem("eyva_email")?.trim();
-  const derivedEmail =
-    savedEmail ||
-    `${savedUsername.toLowerCase().replace(/[^a-z0-9]/g, "") || "student"}@gmail.com`;
-
-  return {
-    username: savedUsername,
-    email: derivedEmail,
-    avatarSrc,
-  };
 }
 
-/**
- * Persists updated username and avatar selection so Home ("Hello, Username!")
- * and all dashboard headers reflect the changes immediately.
- */
-export async function updateUserProfile(
-  updates: Pick<UserProfile, "username" | "avatarSrc">
-): Promise<UserProfile> {
-  const cleanUsername = updates.username.trim();
-  if (typeof window !== "undefined") {
-    localStorage.setItem("eyva_username", cleanUsername);
-    localStorage.setItem("eyva_avatar", updates.avatarSrc);
-  }
-
-  const current = await getUserProfile();
-  return {
-    ...current,
-    username: cleanUsername,
-    avatarSrc: updates.avatarSrc,
-  };
+export async function getUserProfile(): Promise<LoadedProfile> {
+  return toProfile(await apiRequest<ProfileResponse>("/profile"));
 }
 
-/**
- * Clears active session state on logout while keeping structure ready for backend token revocation.
- */
+export async function updateUserProfile(updates: {
+  username?: string;
+  avatarSrc?: AvatarPath;
+}): Promise<LoadedProfile> {
+  const body: Record<string, string> = {};
+  if (updates.username !== undefined) body.username = updates.username.trim();
+  if (updates.avatarSrc !== undefined) body.avatar_url = updates.avatarSrc;
+  return toProfile(
+    await apiRequest<ProfileResponse>("/profile", { method: "PATCH", body: JSON.stringify(body) })
+  );
+}
+
 export async function logoutUser(): Promise<void> {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("eyva_focus_remaining_seconds");
-    localStorage.removeItem("eyva_focus_total_seconds");
+  await logout();
+}
+
+/** Setelah login: ke pemilihan avatar bila belum pernah memilih, selain itu ke Home. */
+export async function landingPathAfterLogin(): Promise<string> {
+  try {
+    const p = await getUserProfile();
+    return p.avatarSelected ? "/dashboard/home" : "/choose-avatar";
+  } catch {
+    return "/dashboard/home";
   }
 }

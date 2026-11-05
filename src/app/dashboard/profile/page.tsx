@@ -7,6 +7,7 @@ import { LogOut, ArrowLeft } from "lucide-react";
 import {
   AVATAR_OPTIONS,
   DEFAULT_USER_PROFILE,
+  getCachedProfile,
   getUserProfile,
   updateUserProfile,
   logoutUser,
@@ -27,12 +28,20 @@ export default function ProfilePage() {
 
   useEffect(() => {
     let isMounted = true;
-    getUserProfile().then((loadedProfile) => {
-      if (!isMounted) return;
-      setProfile(loadedProfile);
-      setSelectedAvatar(loadedProfile.avatarSrc);
-      setIsLoaded(true);
-    });
+    getUserProfile()
+      .then((loadedProfile) => {
+        if (!isMounted) return;
+        setProfile(loadedProfile);
+        setSelectedAvatar(loadedProfile.avatarSrc);
+        setIsLoaded(true);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        const cached = getCachedProfile();
+        setProfile(cached);
+        setSelectedAvatar(cached.avatarSrc);
+        setIsLoaded(true);
+      });
     return () => {
       isMounted = false;
     };
@@ -40,23 +49,21 @@ export default function ProfilePage() {
 
   const handleSelectAvatar = (src: AvatarPath) => {
     setSelectedAvatar(src);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("eyva_avatar", src);
-    }
   };
 
   const handleSaveProfile = async (newUsername: string) => {
     const updated = await updateUserProfile({
-      username: newUsername,
+      ...(newUsername !== profile.username ? { username: newUsername } : {}),
       avatarSrc: selectedAvatar,
     });
     setProfile(updated);
+    setSelectedAvatar(updated.avatarSrc);
   };
 
   const handleConfirmLogout = async () => {
     await logoutUser();
     setIsLogoutModalOpen(false);
-    router.push("/login");
+    router.replace("/login");
   };
 
   return (

@@ -6,148 +6,93 @@ import type {
 } from "@/types/statistics";
 import type { HistorySummaryStats } from "@/types/session";
 
-/**
- * Separated dummy datasets per period.
- * Ready to be replaced by REST API call `apiRequest<StatisticsDataPoint[]>('/sessions/statistics?period=...')`
- * when backend integration is active.
- */
-export const MOCK_STATISTICS_POINTS_BY_PERIOD: Record<
-  StatisticsPeriod,
-  StatisticsDataPoint[]
-> = {
-  weekly: [
-    {
-      label: "Mon",
-      fullLabel: "Monday",
-      focusMinutes: 25,
-      totalSessions: 1,
-      completedSessions: 1,
-      alertsRecorded: 1,
-    },
-    {
-      label: "Tue",
-      fullLabel: "Tuesday",
-      focusMinutes: 45,
-      totalSessions: 2,
-      completedSessions: 1,
-      alertsRecorded: 2,
-    },
-    {
-      label: "Wed",
-      fullLabel: "Wednesday",
-      focusMinutes: 30,
-      totalSessions: 1,
-      completedSessions: 1,
-      alertsRecorded: 0,
-    },
-    {
-      label: "Thu",
-      fullLabel: "Thursday",
-      focusMinutes: 0,
-      totalSessions: 0,
-      completedSessions: 0,
-      alertsRecorded: 0,
-    },
-    {
-      label: "Fri",
-      fullLabel: "Friday",
-      focusMinutes: 50,
-      totalSessions: 2,
-      completedSessions: 2,
-      alertsRecorded: 1,
-    },
-    {
-      label: "Sat",
-      fullLabel: "Saturday",
-      focusMinutes: 70,
-      totalSessions: 2,
-      completedSessions: 2,
-      alertsRecorded: 2,
-    },
-    {
-      label: "Sun",
-      fullLabel: "Sunday",
-      focusMinutes: 15,
-      totalSessions: 1,
-      completedSessions: 0,
-      alertsRecorded: 1,
-    },
-  ],
-  monthly: [
-    {
-      label: "Week 1",
-      fullLabel: "Week 1 (Oct 8 – Oct 14)",
-      focusMinutes: 110,
-      totalSessions: 4,
-      completedSessions: 3,
-      alertsRecorded: 3,
-    },
-    {
-      label: "Week 2",
-      fullLabel: "Week 2 (Oct 15 – Oct 21)",
-      focusMinutes: 145,
-      totalSessions: 5,
-      completedSessions: 4,
-      alertsRecorded: 4,
-    },
-    {
-      label: "Week 3",
-      fullLabel: "Week 3 (Oct 22 – Oct 28)",
-      focusMinutes: 185,
-      totalSessions: 6,
-      completedSessions: 5,
-      alertsRecorded: 3,
-    },
-    {
-      label: "Week 4",
-      fullLabel: "Week 4 (Oct 29 – Nov 5)",
-      focusMinutes: 235,
-      totalSessions: 9,
-      completedSessions: 7,
-      alertsRecorded: 7,
-    },
-  ],
-  "all-time": [
-    {
-      label: "Aug",
-      fullLabel: "August 2026",
-      focusMinutes: 320,
-      totalSessions: 11,
-      completedSessions: 9,
-      alertsRecorded: 8,
-    },
-    {
-      label: "Sep",
-      fullLabel: "September 2026",
-      focusMinutes: 460,
-      totalSessions: 15,
-      completedSessions: 13,
-      alertsRecorded: 11,
-    },
-    {
-      label: "Oct",
-      fullLabel: "October 2026",
-      focusMinutes: 590,
-      totalSessions: 20,
-      completedSessions: 16,
-      alertsRecorded: 14,
-    },
-    {
-      label: "Nov",
-      fullLabel: "November 2026",
-      focusMinutes: 235,
-      totalSessions: 9,
-      completedSessions: 7,
-      alertsRecorded: 7,
-    },
-  ],
-};
+import { listAllSessions, type SessionListItem } from "./sessions";
+import { historyStatusOf } from "./history";
 
-const PERIOD_SUBTITLES: Record<StatisticsPeriod, string> = {
-  weekly: "Mon – Sun · Current week overview",
-  monthly: "Last 4 weeks · Monthly progression",
-  "all-time": "Aug – Nov 2026 · Overall study journey",
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const monthShort = new Intl.DateTimeFormat("en-US", { month: "short" });
+const monthLong = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
+const dayShort = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function emptyPoint(label: string, fullLabel: string): StatisticsDataPoint {
+  return { label, fullLabel, focusMinutes: 0, totalSessions: 0, completedSessions: 0, alertsRecorded: 0 };
+}
+
+function add(pt: StatisticsDataPoint, s: SessionListItem): void {
+  pt.focusMinutes += Math.round(s.total_study_seconds / 60);
+  pt.totalSessions += 1;
+  if (historyStatusOf(s) === "Completed") pt.completedSessions += 1;
+  pt.alertsRecorded += s.alert_1_count + s.alert_2_count;
+}
+
+/** Kelompokkan sesi per hari (minggu ini), per minggu (4 minggu terakhir), atau per bulan (semua waktu). */
+export function buildPoints(
+  sessions: SessionListItem[],
+  period: StatisticsPeriod,
+  now = new Date()
+): StatisticsDataPoint[] {
+  const done = sessions.filter((s) => s.status !== "ACTIVE");
+  const today = startOfDay(now);
+
+  if (period === "weekly") {
+    const monday = new Date(today.getTime() - ((today.getDay() + 6) % 7) * DAY_MS);
+    const points = WEEKDAYS.map((name) => emptyPoint(name.slice(0, 3), name));
+    for (const s of done) {
+      const idx = Math.floor((startOfDay(new Date(s.started_at)).getTime() - monday.getTime()) / DAY_MS);
+      if (idx >= 0 && idx < 7) add(points[idx], s);
+    }
+    return points;
+  }
+
+  if (period === "monthly") {
+    const first = new Date(today.getTime() - 27 * DAY_MS);
+    const points = [0, 1, 2, 3].map((w) => {
+      const from = new Date(first.getTime() + w * 7 * DAY_MS);
+      const to = new Date(from.getTime() + 6 * DAY_MS);
+      return emptyPoint(`Week ${w + 1}`, `Week ${w + 1} (${dayShort.format(from)} – ${dayShort.format(to)})`);
+    });
+    for (const s of done) {
+      const idx = Math.floor((startOfDay(new Date(s.started_at)).getTime() - first.getTime()) / (7 * DAY_MS));
+      if (idx >= 0 && idx < 4) add(points[idx], s);
+    }
+    return points;
+  }
+
+  // all-time: per bulan, dari bulan sesi pertama (maks. 12 bulan terakhir) sampai bulan ini
+  const oldest = done.length ? new Date(done[done.length - 1].started_at) : now;
+  let cursor = new Date(oldest.getFullYear(), oldest.getMonth(), 1);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const minStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  if (cursor < minStart) cursor = minStart;
+  const points: StatisticsDataPoint[] = [];
+  const index = new Map<string, StatisticsDataPoint>();
+  while (cursor <= lastMonth) {
+    const pt = emptyPoint(monthShort.format(cursor), monthLong.format(cursor));
+    points.push(pt);
+    index.set(`${cursor.getFullYear()}-${cursor.getMonth()}`, pt);
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  for (const s of done) {
+    const d = new Date(s.started_at);
+    const pt = index.get(`${d.getFullYear()}-${d.getMonth()}`);
+    if (pt) add(pt, s);
+  }
+  return points;
+}
+
+function periodSubtitle(period: StatisticsPeriod, points: StatisticsDataPoint[]): string {
+  if (period === "weekly") return "Mon – Sun · Current week overview";
+  if (period === "monthly") return "Last 4 weeks · Monthly progression";
+  const first = points[0]?.label ?? "";
+  const last = points[points.length - 1]?.fullLabel ?? "";
+  return points.length > 1 ? `${first} – ${last} · Overall study journey` : `${last} · Overall study journey`;
+}
+
 
 /**
  * Dynamically computes summary card metrics from data points.
@@ -271,13 +216,13 @@ export function buildStatisticsDashboardData(
   period: StatisticsPeriod,
   customPoints?: StatisticsDataPoint[]
 ): StatisticsDashboardData {
-  const points = customPoints ?? MOCK_STATISTICS_POINTS_BY_PERIOD[period] ?? [];
+  const points = customPoints ?? [];
   const summary = computeSummaryFromPoints(points);
   const insights = computeFocusInsights(points, period);
 
   return {
     period,
-    periodSubtitle: PERIOD_SUBTITLES[period],
+    periodSubtitle: periodSubtitle(period, points),
     summary,
     points,
     insights,
@@ -287,8 +232,14 @@ export function buildStatisticsDashboardData(
 /**
  * Async service function to fetch statistics for the selected period.
  */
+let cachedSessions: { at: number; items: SessionListItem[] } | null = null;
+
 export async function getStatisticsByPeriod(
   period: StatisticsPeriod
 ): Promise<StatisticsDashboardData> {
-  return buildStatisticsDashboardData(period);
+  // Daftar sesi dipakai ulang 30 detik agar ganti filter tidak memanggil server berulang kali
+  if (!cachedSessions || Date.now() - cachedSessions.at > 30_000) {
+    cachedSessions = { at: Date.now(), items: await listAllSessions() };
+  }
+  return buildStatisticsDashboardData(period, buildPoints(cachedSessions.items, period));
 }

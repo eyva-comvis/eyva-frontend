@@ -18,6 +18,67 @@ import {
   Music,
   ChevronDown,
 } from "lucide-react";
+import { getCachedProfile, getUserProfile } from "@/services/api/profile";
+import {
+  getActiveSession,
+  listAllSessions,
+  sessionsApi,
+  setActiveSession,
+  type SessionListItem,
+} from "@/services/api/sessions";
+import { formatFocusTime, toHistoryItems } from "@/services/api/history";
+import type { StudySessionHistoryItem } from "@/types/session";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+interface WeekStats {
+  focusMinutes: number;
+  sessions: number;
+  focusDelta: number | null;
+  sessionsDelta: number | null;
+  recent: StudySessionHistoryItem | null;
+}
+
+function percentChange(now: number, before: number): number | null {
+  return before > 0 ? Math.round(((now - before) / before) * 100) : null;
+}
+
+/** Ringkasan minggu ini (Senin–Minggu) dibanding minggu lalu, plus sesi terakhir. */
+function weekStats(items: SessionListItem[]): WeekStats {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const monday = start.getTime() - ((start.getDay() + 6) % 7) * DAY_MS;
+  const lastMonday = monday - 7 * DAY_MS;
+  let focus = 0, count = 0, prevFocus = 0, prevCount = 0;
+  for (const s of items) {
+    if (s.status === "ACTIVE") continue;
+    const t = new Date(s.started_at).getTime();
+    const minutes = Math.round(s.total_study_seconds / 60);
+    if (t >= monday) {
+      focus += minutes;
+      count += 1;
+    } else if (t >= lastMonday) {
+      prevFocus += minutes;
+      prevCount += 1;
+    }
+  }
+  return {
+    focusMinutes: focus,
+    sessions: count,
+    focusDelta: percentChange(focus, prevFocus),
+    sessionsDelta: percentChange(count, prevCount),
+    recent: toHistoryItems(items)[0] ?? null,
+  };
+}
+
+function DeltaBadge({ value }: { value: number | null }) {
+  if (value === null) return null;
+  return (
+    <span className="absolute right-5 bottom-5 inline-flex items-center gap-0.5 rounded-full bg-[#FFF238] px-2.5 py-1 text-[9.5px] font-extrabold text-[#351080]">
+      {value >= 0 ? "↑" : "↓"} {Math.abs(value)}%
+    </span>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -38,16 +99,26 @@ export default function HomePage() {
   const [soundtrack, setSoundtrack] = useState("Soft Piano");
   const [musicEnabled, setMusicEnabled] = useState(true);
 
+  const [stats, setStats] = useState<WeekStats | null>(null);
+
   useEffect(() => {
-    const savedUsername = localStorage.getItem("eyva_username");
-    if (savedUsername) {
-      setUsername(savedUsername);
-    }
-    const savedAvatar = localStorage.getItem("eyva_avatar");
-    if (savedAvatar) {
-      setAvatarSrc(savedAvatar);
-    }
-  }, []);
+    const cached = getCachedProfile();
+    setUsername(cached.username);
+    setAvatarSrc(cached.avatarSrc);
+    getUserProfile()
+      .then((p) => {
+        if (!p.avatarSelected) {
+          router.replace("/choose-avatar");
+          return;
+        }
+        setUsername(p.username);
+        setAvatarSrc(p.avatarSrc);
+      })
+      .catch(() => undefined);
+    listAllSessions()
+      .then((items) => setStats(weekStats(items)))
+      .catch(() => setStats(weekStats([])));
+  }, [router]);
 
   const handleContinueToCamera = () => {
     const cleanTitle = sessionTitle.trim();
@@ -68,6 +139,9 @@ export default function HomePage() {
         "Please type in minutes or choose a preset focus time first."
       );
       hasError = true;
+    } else if (numericDuration < 1 || numericDuration > 180) {
+      setFocusTimeError("Focus time must be between 1 and 180 minutes.");
+      hasError = true;
     } else {
       setFocusTimeError("");
     }
@@ -76,6 +150,13 @@ export default function HomePage() {
       return;
     }
 
+    // Sesi lama yang tertinggal (mis. tab ditutup di tengah sesi) diakhiri dulu
+    const stale = getActiveSession();
+    if (stale) {
+      sessionsApi.end(stale.sessionId, "MANUAL").catch(() => undefined);
+      setActiveSession(null);
+    }
+    localStorage.removeItem("eyva_last_summary");
     localStorage.removeItem("eyva_focus_remaining_seconds");
     localStorage.removeItem("eyva_focus_total_seconds");
     localStorage.setItem(
@@ -271,14 +352,12 @@ export default function HomePage() {
                   Total focus time
                 </span>
                 <strong className="my-1.5 text-[25px] font-bold tracking-tight text-white">
-                  2h 30m
+                  {stats ? formatFocusTime(stats.focusMinutes) : "—"}
                 </strong>
                 <span className="text-[12px] text-white/85">This week</span>
               </div>
 
-              <span className="absolute right-5 bottom-5 inline-flex items-center gap-0.5 rounded-full bg-[#FFF238] px-2.5 py-1 text-[9.5px] font-extrabold text-[#351080]">
-                ↑ 12%
-              </span>
+              <DeltaBadge value={stats?.focusDelta ?? null} />
             </div>
 
             {/* Study Sessions */}
@@ -292,14 +371,12 @@ export default function HomePage() {
                   Study sessions
                 </span>
                 <strong className="my-1.5 text-[25px] font-bold tracking-tight text-white">
-                  8
+                  {stats ? stats.sessions : "—"}
                 </strong>
                 <span className="text-[12px] text-white/85">This week</span>
               </div>
 
-              <span className="absolute right-5 bottom-5 inline-flex items-center gap-0.5 rounded-full bg-[#FFF238] px-2.5 py-1 text-[9.5px] font-extrabold text-[#351080]">
-                ↑ 23%
-              </span>
+              <DeltaBadge value={stats?.sessionsDelta ?? null} />
             </div>
           </section>
 
@@ -357,10 +434,14 @@ export default function HomePage() {
 
               <div className="min-w-0 flex-1">
                 <div className="m-0 text-[11.5px] font-bold leading-snug text-[#2D0A73]">
-                  Study Session
+                  {stats?.recent ? stats.recent.title : stats ? "No sessions yet" : "Loading…"}
                 </div>
                 <p className="m-0 mt-0.5 text-[10.5px] text-[#7B728E]">
-                  Yesterday · 45 minutes
+                  {stats?.recent
+                    ? `${stats.recent.dateGroup === "Earlier" ? stats.recent.displayDate : stats.recent.dateGroup} · ${stats.recent.focusDurationMinutes} minutes`
+                    : stats
+                      ? "Start your first focus session above"
+                      : " "}
                 </p>
               </div>
 
@@ -639,7 +720,7 @@ export default function HomePage() {
                 Can we use your camera?
               </h2>
               <p className="m-0 mt-2 text-[10.5px] leading-[1.6] text-[#7B728E]">
-                Loopa needs camera accessfor the focus-check feature.
+                Eyva needs camera access for the focus check-in feature.
                 <br />
                 The camera will be active during this session. The drowsiness
                 detection will analyze visual cues to identify possible signs

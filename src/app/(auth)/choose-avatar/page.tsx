@@ -3,30 +3,38 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import AuthGate from "@/components/auth/AuthGate";
+import { errorMessage } from "@/services/api/client";
+import { getUserProfile, updateUserProfile } from "@/services/api/profile";
 
-export default function ChooseAvatarPage() {
+function ChooseAvatarPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("Username");
+  const [username, setUsername] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<"female" | "male" | null>(
     null
   );
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const savedUsername = localStorage.getItem("eyva_username");
-    if (savedUsername) {
-      setUsername(savedUsername);
-    }
+    getUserProfile()
+      .then((p) => setUsername(p.username))
+      .catch(() => setUsername(localStorage.getItem("eyva_username") || "there"));
   }, []);
 
-  const handleGetIn = () => {
-    if (!selectedAvatar) return;
-    localStorage.setItem(
-      "eyva_avatar",
-      selectedAvatar === "female"
-        ? "/images/FemaleAva.svg"
-        : "/images/MaleAva.svg"
-    );
-    router.push("/dashboard/home");
+  const handleGetIn = async () => {
+    if (!selectedAvatar || isSaving) return;
+    setIsSaving(true);
+    setError("");
+    try {
+      await updateUserProfile({
+        avatarSrc: selectedAvatar === "female" ? "/images/FemaleAva.svg" : "/images/MaleAva.svg",
+      });
+      router.replace("/dashboard/home");
+    } catch (err) {
+      setError(errorMessage(err));
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -34,7 +42,7 @@ export default function ChooseAvatarPage() {
       {/* Header */}
       <div className="mb-10 text-center">
         <h1 className="m-0 mb-2 text-[34px] font-bold tracking-tight text-[#2A1163]">
-          Hello, {username}!
+          Hello{username ? `, ${username}` : ""}!
         </h1>
         <p className="m-0 text-[13.5px] text-[#7B728E]">
           Feel free to choose your avatar.
@@ -103,9 +111,22 @@ export default function ChooseAvatarPage() {
             : "bg-[#6A519B] shadow-[0_4px_0_#351080] cursor-not-allowed"
         }`}
       >
-        <span>Get in</span>
+        <span>{isSaving ? "Saving…" : "Get in"}</span>
         <span aria-hidden="true">→</span>
       </button>
+      {error && (
+        <p role="alert" className="m-0 mt-4 text-[11.5px] font-medium text-[#9F3D69]">
+          {error}
+        </p>
+      )}
     </main>
+  );
+}
+
+export default function ChooseAvatarRoute() {
+  return (
+    <AuthGate require="user">
+      <ChooseAvatarPage />
+    </AuthGate>
   );
 }
