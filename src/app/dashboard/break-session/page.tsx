@@ -3,10 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Droplet, EyeOff, Brain, Clock } from "lucide-react";
 import AiInsightCard from "@/components/ai/AiInsightCard";
-import { getActiveSession, sessionsApi } from "@/services/api/sessions";
+import {
+  getActiveSession,
+  sessionsApi,
+  setActiveSession,
+} from "@/services/api/sessions";
 
 export default function BreakSessionPage() {
   const router = useRouter();
@@ -14,10 +18,28 @@ export default function BreakSessionPage() {
   const [totalBreakSeconds, setTotalBreakSeconds] = useState(5 * 60);
   const [secondsLeft, setSecondsLeft] = useState(5 * 60);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isReturning, setIsReturning] = useState(false);
+  const returningRef = useRef(false);
 
   useEffect(() => {
-    setSessionId(getActiveSession()?.sessionId ?? null);
+    const active = getActiveSession();
+    setSessionId(active?.sessionId ?? null);
+    // Pastikan flag resetBreak aktif agar Focus Session otomatis memanggil /resume saat kembali
+    if (active && !active.resetBreak) {
+      setActiveSession({ ...active, resetBreak: true });
+    }
   }, []);
+
+  const returnToFocus = useCallback(() => {
+    if (returningRef.current) return;
+    returningRef.current = true;
+    setIsReturning(true);
+    const active = getActiveSession();
+    if (active && !active.resetBreak) {
+      setActiveSession({ ...active, resetBreak: true });
+    }
+    router.push("/dashboard/focus-session");
+  }, [router]);
 
   // Load break duration if configured, otherwise default to full 5 min (05:00)
   useEffect(() => {
@@ -40,8 +62,8 @@ export default function BreakSessionPage() {
   useEffect(() => {
     if (secondsLeft <= 0) {
       const timeout = setTimeout(() => {
-        router.push("/dashboard/focus-session");
-      }, 800);
+        returnToFocus();
+      }, 600);
       return () => clearTimeout(timeout);
     }
 
@@ -50,7 +72,7 @@ export default function BreakSessionPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [secondsLeft, router]);
+  }, [secondsLeft, returnToFocus]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
@@ -255,15 +277,16 @@ export default function BreakSessionPage() {
             {/* Small Demo Skip Button (Absolute so layout never shifts) */}
             <button
               type="button"
-              onClick={() => router.push("/dashboard/focus-session")}
+              onClick={returnToFocus}
+              disabled={isReturning}
               style={{
                 color: "#2A1163",
                 fontWeight: 700,
                 fontSize: "8.5px",
               }}
-              className="absolute right-3.5 top-3.5 rounded-[7px] border border-[#2A1163]/15 bg-white/75 px-2.5 py-1 text-[8.5px] !font-bold !text-[#2A1163] backdrop-blur-xs transition hover:bg-white active:scale-95"
+              className="absolute right-3.5 top-3.5 rounded-[7px] border border-[#2A1163]/15 bg-white/75 px-2.5 py-1 text-[8.5px] !font-bold !text-[#2A1163] backdrop-blur-xs transition-[background-color,transform] duration-150 hover:bg-white enabled:active:scale-[0.96]"
             >
-              Skip break →
+              {isReturning ? "Resuming…" : "Skip break →"}
             </button>
 
             <div className="text-[9.5px] font-semibold tracking-[0.06em] text-[#5E5278] uppercase">
@@ -278,7 +301,7 @@ export default function BreakSessionPage() {
             <div className="mx-auto mt-3.5 h-[4px] w-full max-w-[395px] overflow-hidden rounded-full bg-[#DDD5C0]">
               <div
                 style={{ width: `${progressPercent}%` }}
-                className="h-full rounded-full bg-gradient-to-r from-[#2A1163] via-[#5C3D99] to-[#9B6BFF] transition-all duration-700 ease-linear"
+                className="h-full rounded-full bg-gradient-to-r from-[#2A1163] via-[#5C3D99] to-[#9B6BFF] transition-[width] duration-700 ease-linear"
               />
             </div>
 

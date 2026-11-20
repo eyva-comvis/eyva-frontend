@@ -13,9 +13,40 @@ import {
   Sliders,
   Sprout,
   ArrowRight,
+  ChevronDown,
+  RefreshCw,
 } from "lucide-react";
+import { EyvaErrorView } from "@/components/ui/EyvaStateView";
 import { useFocusMonitor } from "@/hooks/useFocusMonitor";
+import {
+  playAlert,
+  playStatusSound,
+  unlockAudio,
+  type CameraSoundCue,
+} from "@/lib/audio";
+import {
+  SOUNDTRACKS,
+  getBars,
+  getMusicState,
+  getSoundtrackSubtitle,
+  normalizeSoundtrack,
+  setEnergized,
+  setMusicMuted,
+  setTrack,
+  startMusic,
+  stopMusic,
+  unlockMusic,
+  type SoundtrackName,
+} from "@/lib/music";
 import { sessionsApi, type DrowsinessStatus } from "@/services/api/sessions";
+
+const FACE_LOST_DEBOUNCE_MS = 1600;
+const SFX_COOLDOWN_MS: Record<CameraSoundCue, number> = {
+  face_detected: 4000,
+  face_not_detected: 5000,
+  possible_drowsiness: 6000,
+  drowsy: 6000,
+};
 
 const WAVEFORM_HEIGHTS = [
   10, 18, 8, 22, 14, 10, 26, 16, 10, 20, 12, 24, 15, 9, 28, 18, 12, 22, 14, 10,
@@ -31,13 +62,18 @@ export default function FocusSessionPage() {
   const [secondsLeft, setSecondsLeft] = useState(24 * 60 + 36);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [soundtrack, setSoundtrack] = useState("Soft Piano");
+  const [soundtrack, setSoundtrack] = useState<SoundtrackName>("Soft Piano");
   const [isMusicPlaying, setIsMusicPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [barHeights, setBarHeights] = useState<number[]>(() =>
+    WAVEFORM_HEIGHTS.map(() => 6)
+  );
   const [cameraConnected, setCameraConnected] = useState(true);
-  const [activeAlert, setActiveAlert] = useState<
-    null | "alert1" | "alert2" | "quick-reset"
-  >(null);
+  const [activeAlert, setActiveAlert] = useState<null | "alert1" | "alert2">(
+    null
+  );
+  const [breakMinutes, setBreakMinutes] = useState(5);
+  const [isTransitioningBreak, setIsTransitioningBreak] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [sessionNumber, setSessionNumber] = useState("01");
 
@@ -51,16 +87,214 @@ export default function FocusSessionPage() {
 
   const monitor = useFocusMonitor(
     videoRef,
-    isHydrated && !isPaused && cameraConnected && activeAlert === null && !isEnding,
+    isHydrated &&
+      !isPaused &&
+      cameraConnected &&
+      activeAlert === null &&
+      !isEnding &&
+      !isTransitioningBreak,
     () => router.replace("/dashboard/home")
   );
 
-  // Alert dari model kantuk -> tampilkan modal yang sesuai
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+  const soundtrackRef = useRef(soundtrack);
+  soundtrackRef.current = soundtrack;
+  const shouldPlayMusic =
+    isHydrated &&
+    monitor.ready &&
+    isMusicPlaying &&
+    !isPaused &&
+    !isEnding &&
+    !isTransitioningBreak;
+  const shouldPlayMusicRef = useRef(shouldPlayMusic);
+  shouldPlayMusicRef.current = shouldPlayMusic;
+  const isMusicAudible = shouldPlayMusic && !isMuted;
+
+  const confirmedCueRef = useRef<CameraSoundCue | null>(null);
+  const lastPlayedAtRef = useRef<Partial<Record<CameraSoundCue | "alert1" | "alert2", number>>>({});
+  const faceLostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playedAlertIdRef = useRef<string | null>(null);
+
+  // Buka izin WebAudio pada interaksi pengguna pertama & hentikan musik saat halaman ditutup
+  useEffect(() => {
+    const unlock = () => {
+      void unlockAudio();
+      void unlockMusic().then((ok) => {
+        if (ok && shouldPlayMusicRef.current && !getMusicState().playing) {
+          void startMusic(soundtrackRef.current);
+        }
+      });
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      if (faceLostTimerRef.current) {
+        clearTimeout(faceLostTimerRef.current);
+        faceLostTimerRef.current = null;
+      }
+      stopMusic(true);
+    };
+  }, []);
+
+  // Sinkronisasi mesin musik latar dengan Play/Pause, Pause sesi, End, dan pindah ke Break
+  useEffect(() => {
+    if (shouldPlayMusic) {
+      void startMusic(soundtrack);
+    } else {
+      stopMusic();
+    }
+  }, [shouldPlayMusic, soundtrack]);
+
+  // Sinkronisasi tombol Mute/Unmute ke volume musik
+  useEffect(() => {
+    setMusicMuted(isMuted);
+  }, [isMuted]);
+
+  // Sedikit cerahkan musik saat indikasi kantuk muncul
+  useEffect(() => {
+    setEnergized(
+      monitor.status === "POSSIBLE_DROWSINESS" ||
+        monitor.status === "DROWSY_NEED_REST"
+    );
+  }, [monitor.status]);
+
+  // Gerakkan batang waveform mengikuti AnalyserNode (hormati prefers-reduced-motion)
+  useEffect(() => {
+    if (!isMusicAudible) {
+      setBarHeights(WAVEFORM_HEIGHTS.map(() => 6));
+      return;
+    }
+
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      setBarHeights(WAVEFORM_HEIGHTS);
+      return;
+    }
+
+    let rafId = 0;
+    let lastUpdate = 0;
+    const loop = (ts: number) => {
+      if (ts - lastUpdate >= 55) {
+        lastUpdate = ts;
+        const levels = getBars(WAVEFORM_HEIGHTS.length);
+        setBarHeights(
+          WAVEFORM_HEIGHTS.map((base, idx) => {
+            const energy = levels[idx] ?? 0;
+            const target = 6 + Math.round(energy * 22 + (base / 28) * 7 * (0.35 + energy));
+            return Math.min(30, Math.max(6, target));
+          })
+        );
+      }
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, [isMusicAudible]);
+
+  // Alert dari model kantuk -> tampilkan modal & bunyikan SFX peringatan
   useEffect(() => {
     if (!monitor.alert) return;
     localStorage.setItem("eyva_focus_remaining_seconds", String(secondsLeftRef.current));
     setActiveAlert(monitor.alert.level === 1 ? "alert1" : "alert2");
+
+    if (playedAlertIdRef.current !== monitor.alert.id) {
+      playedAlertIdRef.current = monitor.alert.id;
+      if (!isMutedRef.current) {
+        const now = Date.now();
+        if (monitor.alert.level === 2) {
+          lastPlayedAtRef.current.alert2 = now;
+          void playAlert(2);
+        } else {
+          const lastAlert1 = lastPlayedAtRef.current.alert1 ?? 0;
+          if (now - lastAlert1 >= 2500) {
+            lastPlayedAtRef.current.alert1 = now;
+            void playAlert(1);
+          }
+        }
+      }
+    }
   }, [monitor.alert]);
+
+  // SFX saat status kamera berubah (hanya pada transisi, dengan debounce & cooldown)
+  useEffect(() => {
+    const clearFaceLostTimer = () => {
+      if (faceLostTimerRef.current) {
+        clearTimeout(faceLostTimerRef.current);
+        faceLostTimerRef.current = null;
+      }
+    };
+
+    if (!cameraConnected) {
+      clearFaceLostTimer();
+      confirmedCueRef.current = null;
+      return;
+    }
+
+    if (
+      !monitor.ready ||
+      isPaused ||
+      isEnding ||
+      activeAlert !== null ||
+      monitor.alert !== null ||
+      monitor.status === null
+    ) {
+      clearFaceLostTimer();
+      return;
+    }
+
+    const nextCue: CameraSoundCue = !monitor.faceDetected
+      ? "face_not_detected"
+      : monitor.status === "DROWSY_NEED_REST"
+        ? "drowsy"
+        : monitor.status === "POSSIBLE_DROWSINESS"
+          ? "possible_drowsiness"
+          : "face_detected";
+
+    const commitTransition = (cue: CameraSoundCue) => {
+      if (confirmedCueRef.current === cue) return;
+      confirmedCueRef.current = cue;
+      if (isMutedRef.current) return;
+      const now = Date.now();
+      const last = lastPlayedAtRef.current[cue] ?? 0;
+      if (now - last < SFX_COOLDOWN_MS[cue]) return;
+      lastPlayedAtRef.current[cue] = now;
+      if (cue === "drowsy") {
+        lastPlayedAtRef.current.alert1 = now;
+      }
+      void playStatusSound(cue);
+    };
+
+    if (nextCue === "face_not_detected") {
+      if (
+        confirmedCueRef.current === "face_not_detected" ||
+        faceLostTimerRef.current !== null
+      ) {
+        return;
+      }
+      faceLostTimerRef.current = setTimeout(() => {
+        faceLostTimerRef.current = null;
+        commitTransition("face_not_detected");
+      }, FACE_LOST_DEBOUNCE_MS);
+      return;
+    }
+
+    clearFaceLostTimer();
+    commitTransition(nextCue);
+  }, [
+    cameraConnected,
+    monitor.ready,
+    monitor.status,
+    monitor.faceDetected,
+    monitor.alert,
+    isPaused,
+    isEnding,
+    activeAlert,
+  ]);
 
   // Load user avatar, session config, and any remaining seconds from pre-break state
   useEffect(() => {
@@ -77,8 +311,14 @@ export default function FocusSessionPage() {
         if (parsed.durationMinutes) {
           configuredTotalSecs = Number(parsed.durationMinutes) * 60;
         }
+        if (parsed.breakDurationMinutes) {
+          const bMins = Number(parsed.breakDurationMinutes);
+          if (!Number.isNaN(bMins) && bMins > 0) {
+            setBreakMinutes(bMins);
+          }
+        }
         if (parsed.soundtrack) {
-          setSoundtrack(parsed.soundtrack);
+          setSoundtrack(normalizeSoundtrack(parsed.soundtrack));
         }
         if (typeof parsed.musicEnabled === "boolean") {
           setIsMusicPlaying(parsed.musicEnabled);
@@ -118,9 +358,12 @@ export default function FocusSessionPage() {
     setIsHydrated(true);
   }, []);
 
+  const streamRef = useRef<MediaStream | null>(null);
+
   // Connect live webcam stream via getUserMedia
   useEffect(() => {
     let activeStream: MediaStream | null = null;
+    let cancelled = false;
 
     const startCamera = async () => {
       try {
@@ -128,32 +371,57 @@ export default function FocusSessionPage() {
           const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
           });
+          if (cancelled) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
           activeStream = stream;
+          streamRef.current = stream;
           setCameraConnected(true);
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
         }
       } catch {
-        setCameraConnected(false);
+        if (!cancelled) setCameraConnected(false);
       }
     };
 
     startCamera();
 
     return () => {
+      cancelled = true;
+      streamRef.current = null;
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
 
+  // Pastikan stream webcam langsung terpasang begitu elemen <video> muncul setelah loading selesai
+  useEffect(() => {
+    if (monitor.ready && streamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+    }
+  }, [monitor.ready]);
+
   const secondsLeftRef = useRef(secondsLeft);
   secondsLeftRef.current = secondsLeft;
 
   // Countdown timer (automatically pauses when manually paused OR when an alert modal is active)
   useEffect(() => {
-    if (!isHydrated || isPaused || activeAlert !== null || !monitor.ready || isEnding) return;
+    if (
+      !isHydrated ||
+      isPaused ||
+      activeAlert !== null ||
+      !monitor.ready ||
+      isEnding ||
+      isTransitioningBreak
+    ) {
+      return;
+    }
     const interval = setInterval(() => {
       setSecondsLeft((prev) => {
         const next = prev > 0 ? prev - 1 : 0;
@@ -163,31 +431,97 @@ export default function FocusSessionPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isHydrated, isPaused, activeAlert, totalSeconds, monitor.ready, isEnding]);
+  }, [
+    isHydrated,
+    isPaused,
+    activeAlert,
+    totalSeconds,
+    monitor.ready,
+    isEnding,
+    isTransitioningBreak,
+  ]);
+
+  const persistMusicConfig = (patch: { soundtrack?: SoundtrackName; musicEnabled?: boolean }) => {
+    try {
+      const raw = localStorage.getItem("eyva_session_config");
+      const current = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+      localStorage.setItem("eyva_session_config", JSON.stringify({ ...current, ...patch }));
+    } catch {
+      // abaikan bila localStorage tidak tersedia
+    }
+  };
+
+  const handleToggleMusic = () => {
+    void unlockAudio();
+    void unlockMusic();
+    setIsMusicPlaying((prev) => {
+      const next = !prev;
+      persistMusicConfig({ musicEnabled: next });
+      return next;
+    });
+  };
+
+  const handleToggleMute = () => {
+    void unlockAudio();
+    void unlockMusic();
+    setIsMuted((prev) => !prev);
+  };
+
+  const handleTrackChange = (next: SoundtrackName) => {
+    void unlockAudio();
+    void unlockMusic();
+    setSoundtrack(next);
+    persistMusicConfig({ soundtrack: next });
+    setTrack(next);
+  };
 
   const goToSummary = () => {
+    stopMusic(true);
     localStorage.removeItem("eyva_focus_remaining_seconds");
     localStorage.removeItem("eyva_focus_total_seconds");
     router.push("/dashboard/summary");
   };
 
   const handleEndSession = async () => {
-    if (isEnding) return;
+    if (isEnding || isTransitioningBreak) return;
     setIsEnding(true);
+    stopMusic(true);
     if (monitor.alert) await monitor.endFromAlert();
     else await monitor.endSession("MANUAL");
     goToSummary();
+  };
+
+  const handleTakeBreakFromAlert2 = async () => {
+    if (isTransitioningBreak || isEnding) return;
+    setIsTransitioningBreak(true);
+    stopMusic(true);
+    try {
+      await monitor.chooseReset();
+      localStorage.setItem(
+        "eyva_focus_remaining_seconds",
+        String(secondsLeftRef.current)
+      );
+      localStorage.setItem("eyva_focus_total_seconds", String(totalSeconds));
+      monitor.startResetBreak();
+      setActiveAlert(null);
+      router.push("/dashboard/break-session");
+    } catch {
+      setIsTransitioningBreak(false);
+    }
   };
 
   // Timer habis: blok belajar selesai, sesi berakhir normal
   useEffect(() => {
     if (!isHydrated || !monitor.ready || secondsLeft > 0 || isEnding) return;
     setIsEnding(true);
+    stopMusic(true);
     monitor.completeSession().then(goToSummary);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft, isHydrated, monitor.ready]);
 
   const togglePause = () => {
+    void unlockAudio();
+    void unlockMusic();
     const next = !isPaused;
     setIsPaused(next);
     monitor.setPaused(next);
@@ -221,11 +555,27 @@ export default function FocusSessionPage() {
   const ringCircumference = 2 * Math.PI * ringRadius;
   const strokeDashoffset = ringCircumference * (1 - progressRatio);
 
+  // Jika inisialisasi sesi gagal (backend mati / timeout / error jaringan), tampilkan halaman error ramah dengan tombol Retry
+  if (!monitor.ready && monitor.error) {
+    return (
+      <EyvaErrorView
+        eyebrow="COULDN'T START SESSION"
+        title="Connection took a pause"
+        description={monitor.error}
+        onRetry={monitor.retryInit}
+        retryLabel="Retry"
+        homeHref="/dashboard/home"
+        homeLabel="Back to Home"
+        variant="network"
+      />
+    );
+  }
+
   return (
     <div className="relative min-h-screen w-full bg-white text-[#351080]">
       {/* PAGE CONTENT WRAPPER (Blurred when alert modal is open) */}
       <div
-        className={`min-h-screen w-full pl-6 pr-8 pt-6 pb-12 sm:pr-12 transition-all duration-200 ${
+        className={`min-h-screen w-full pl-6 pr-8 pt-6 pb-12 sm:pr-12 transition-[filter] duration-200 ${
           activeAlert ? "blur-[4px] pointer-events-none select-none" : ""
         }`}
       >
@@ -268,32 +618,131 @@ export default function FocusSessionPage() {
             <span className="inline-flex h-[8px] w-[8px] items-center justify-center rounded-full bg-[#FFF238]">
               <span className="h-[4px] w-[4px] rounded-full bg-[#FF5A36]" />
             </span>
-            <span>FOCUS MODE IS ON</span>
+            <span>{monitor.ready ? "FOCUS MODE IS ON" : "PREPARING SESSION"}</span>
           </div>
           <h1 className="m-0 mt-1 text-[30px] font-bold tracking-tight text-[#2A1163]">
-            You&apos;re doing lovely
+            {monitor.ready
+              ? "You're doing lovely"
+              : "Preparing your study space…"}
           </h1>
         </div>
 
-        {monitor.error && (
+        {/* SKELETON & SLOW-CONNECTION HANDLER SAAT INISIALISASI SESI */}
+        {!monitor.ready ? (
           <div
-            role="alert"
-            className="mx-auto mb-5 flex max-w-[980px] flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#F5DCE6] bg-[#FDF2F6] px-5 py-3 text-[11.5px] font-medium text-[#9F3D69]"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            className="mx-auto max-w-[980px]"
           >
-            <span>{monitor.error}</span>
-            <Link href="/dashboard/home" className="font-bold !text-[#9F3D69] underline">
-              Back to Home
-            </Link>
-          </div>
-        )}
-        {!cameraConnected && (
-          <div className="mx-auto mb-5 max-w-[980px] rounded-[14px] border border-[#EAE4F3] bg-[#FAF8FF] px-5 py-3 text-[11.5px] text-[#5A5070]">
-            Eyva can&apos;t see your camera, so drowsiness detection is off. Allow camera access in your browser and reload this page to turn it on.
-          </div>
-        )}
+            {monitor.isSlow && (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#EAE0A8] bg-[#FFFCE0] px-5 py-3.5 text-[12px] text-[#351080]">
+                <div>
+                  <div className="font-bold text-[#2A1163]">
+                    Taking longer than usual to connect
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-[#5A5070]">
+                    The Eyva server hasn&apos;t responded after 10 seconds. Check your connection or try again.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={monitor.retryInit}
+                    style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "11.5px" }}
+                    className="inline-flex h-[36px] items-center gap-1.5 rounded-[10px] border-0 bg-[#351080] px-4 text-[11.5px] !font-bold !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] enabled:active:scale-[0.96]"
+                  >
+                    <RefreshCw size={13} strokeWidth={2.3} />
+                    <span>Retry</span>
+                  </button>
+                  <Link
+                    href="/dashboard/home"
+                    style={{ color: "#351080", fontWeight: 700, fontSize: "11.5px" }}
+                    className="inline-flex h-[36px] items-center rounded-[10px] border border-[#DDD3F2] bg-white px-3.5 text-[11.5px] !font-bold !text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#F2ECFF] active:scale-[0.96]"
+                  >
+                    Back to Home
+                  </Link>
+                </div>
+              </div>
+            )}
 
-        {/* MAIN TWO-COLUMN GRID */}
-        <div className="mx-auto grid max-w-[980px] grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Left Timer Card Skeleton */}
+              <div className="flex min-h-[470px] flex-col items-center justify-between rounded-[20px] bg-[#2D0A73] p-7 text-white shadow-[0_10px_30px_rgba(45,10,115,0.16)]">
+                <div className="flex w-full items-center justify-between">
+                  <span className="h-[26px] w-[112px] rounded-full bg-[#FFF238]/80 motion-safe:animate-pulse" />
+                  <span className="h-3 w-16 rounded-full bg-white/20 motion-safe:animate-pulse" />
+                </div>
+
+                <div className="my-8 flex flex-col items-center">
+                  <div className="flex h-[220px] w-[220px] flex-col items-center justify-center rounded-full border-[9px] border-white/20 bg-white/10 motion-safe:animate-pulse">
+                    <span className="h-3 w-20 rounded-full bg-white/30" />
+                    <span className="my-3 h-10 w-32 rounded-xl bg-white/30" />
+                    <span className="h-3 w-24 rounded-full bg-white/25" />
+                  </div>
+                  <div className="mt-8 flex gap-3.5">
+                    <span className="h-[38px] w-[96px] rounded-[10px] bg-white/25 motion-safe:animate-pulse" />
+                    <span className="h-[38px] w-[104px] rounded-[10px] bg-white/20 motion-safe:animate-pulse" />
+                  </div>
+                </div>
+
+                <div className="flex w-full items-center justify-between border-t border-white/15 pt-3.5">
+                  <span className="h-3 w-24 rounded-full bg-white/20 motion-safe:animate-pulse" />
+                  <span className="h-3 w-16 rounded-full bg-white/20 motion-safe:animate-pulse" />
+                </div>
+              </div>
+
+              {/* Right Column Skeleton */}
+              <div className="flex flex-col gap-6">
+                <div className="rounded-[20px] border border-[#EAE4F3] bg-white p-6 shadow-[0_6px_24px_rgba(45,10,115,0.06)]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="h-[36px] w-[36px] rounded-[10px] bg-[#FFF238]/75 motion-safe:animate-pulse" />
+                      <div className="space-y-1.5">
+                        <div className="h-3 w-24 rounded-full bg-[#E5DCF8] motion-safe:animate-pulse" />
+                        <div className="h-2.5 w-32 rounded-full bg-[#F2ECFF] motion-safe:animate-pulse" />
+                      </div>
+                    </div>
+                    <span className="h-6 w-28 rounded-[8px] bg-[#F2ECFF] motion-safe:animate-pulse" />
+                  </div>
+                  <div className="mt-4 h-[217px] w-full rounded-[16px] bg-[#F2ECFF] motion-safe:animate-pulse" />
+                </div>
+
+                <div className="rounded-[20px] border border-[#EAE4F3] bg-white p-6 shadow-[0_6px_24px_rgba(45,10,115,0.06)]">
+                  <div className="flex items-center gap-3">
+                    <span className="h-[36px] w-[36px] rounded-[10px] bg-[#FFF238]/75 motion-safe:animate-pulse" />
+                    <div className="space-y-1.5">
+                      <div className="h-3 w-36 rounded-full bg-[#E5DCF8] motion-safe:animate-pulse" />
+                      <div className="h-2.5 w-20 rounded-full bg-[#F2ECFF] motion-safe:animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="mt-4 h-[52px] w-full rounded-[11px] bg-[#F8F7F2] motion-safe:animate-pulse" />
+                  <div className="mt-4 h-[32px] w-full rounded-full bg-[#F2ECFF]/70 motion-safe:animate-pulse" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {monitor.error && (
+              <div
+                role="alert"
+                className="mx-auto mb-5 flex max-w-[980px] flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#F5DCE6] bg-[#FDF2F6] px-5 py-3 text-[11.5px] font-medium text-[#9F3D69]"
+              >
+                <span>{monitor.error}</span>
+                <Link href="/dashboard/home" className="font-bold !text-[#9F3D69] underline">
+                  Back to Home
+                </Link>
+              </div>
+            )}
+            {!cameraConnected && (
+              <div className="mx-auto mb-5 max-w-[980px] rounded-[14px] border border-[#EAE4F3] bg-[#FAF8FF] px-5 py-3 text-[11.5px] text-[#5A5070]">
+                Eyva can&apos;t see your camera, so drowsiness detection is off. Allow camera access in your browser and reload this page to turn it on.
+              </div>
+            )}
+
+            {/* MAIN TWO-COLUMN GRID */}
+            <div className="mx-auto grid max-w-[980px] grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT CARD: PURPLE TIMER CARD */}
           <section className="flex flex-col justify-between rounded-[20px] bg-[#2D0A73] p-7 text-white shadow-[0_10px_30px_rgba(45,10,115,0.16)]">
             {/* Card Top Row */}
@@ -399,9 +848,7 @@ export default function FocusSessionPage() {
               <span>{focusedMinutes} min focused</span>
               <span className="inline-flex items-center gap-1.5">
                 <Music size={11} />
-                <span>
-                  {isMusicPlaying && !isMuted ? "Music on" : "Music off"}
-                </span>
+                <span>{isMusicAudible ? "Music on" : "Music off"}</span>
               </span>
             </div>
           </section>
@@ -480,9 +927,13 @@ export default function FocusSessionPage() {
                       A little background calm
                     </div>
                     <div className="text-[10px] text-[#7B728E]">
-                      {isMusicPlaying && !isMuted
-                        ? "Music is on"
-                        : "Music is paused"}
+                      {isMuted
+                        ? "Audio muted"
+                        : isPaused
+                          ? "Paused with session"
+                          : isMusicPlaying
+                            ? "Music is on"
+                            : "Music is paused"}
                     </div>
                   </div>
                 </div>
@@ -490,9 +941,9 @@ export default function FocusSessionPage() {
                 {/* Volume Button */}
                 <button
                   type="button"
-                  onClick={() => setIsMuted(!isMuted)}
-                  aria-label={isMuted ? "Unmute music" : "Mute music"}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-[8px] border border-[#E5DFEE] bg-white text-[#351080] transition hover:bg-[#F5F1FC]"
+                  onClick={handleToggleMute}
+                  aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+                  className="flex h-[32px] w-[32px] items-center justify-center rounded-[8px] border border-[#E5DFEE] bg-white text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#F5F1FC] enabled:active:scale-[0.96]"
                 >
                   {isMuted ? (
                     <VolumeX size={15} strokeWidth={2} />
@@ -503,56 +954,82 @@ export default function FocusSessionPage() {
               </div>
 
               {/* Track Player Box */}
-              <div className="mt-4 flex items-center justify-between rounded-[11px] border border-[#E6E2DC] bg-[#F8F7F2] px-4 py-2.5">
-                <div className="flex items-center gap-3">
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-[11px] border border-[#E6E2DC] bg-[#F8F7F2] px-4 py-2.5">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Music
                     size={16}
                     strokeWidth={2.2}
-                    className="text-[#2D0A73]"
+                    className="shrink-0 text-[#2D0A73]"
                   />
-                  <div>
-                    <div className="text-[10.5px] font-bold text-[#2A1163]">
-                      {soundtrack}
+                  <div className="min-w-0 flex-1">
+                    <div className="relative inline-flex max-w-full items-center">
+                      <select
+                        aria-label="Choose focus soundtrack"
+                        value={soundtrack}
+                        onChange={(e) =>
+                          handleTrackChange(e.target.value as SoundtrackName)
+                        }
+                        style={{ fontSize: "10.5px", fontWeight: 700 }}
+                        className="max-w-full cursor-pointer appearance-none truncate bg-transparent pr-4 !text-[10.5px] !font-bold text-[#2A1163] outline-none focus-visible:underline"
+                      >
+                        {SOUNDTRACKS.map((track) => (
+                          <option key={track.name} value={track.name}>
+                            {track.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={11}
+                        strokeWidth={2.4}
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-0 text-[#5A5070]"
+                      />
                     </div>
                     <div className="text-[8.5px] text-[#7B728E]">
-                      Soft Instrumental
+                      {getSoundtrackSubtitle(soundtrack)}
                     </div>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setIsMusicPlaying(!isMusicPlaying)}
+                  onClick={handleToggleMusic}
+                  disabled={isPaused || isEnding}
                   aria-label={isMusicPlaying ? "Pause music" : "Play music"}
                   style={{ color: "#FFFFFF", fontSize: "9px", fontWeight: 700 }}
-                  className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-0 bg-[#2D0A73] !text-white transition hover:bg-[#43189E]"
+                  className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-0 bg-[#2D0A73] !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] enabled:active:scale-[0.96]"
                 >
-                  {isMusicPlaying ? "❚❚" : "▶"}
+                  {isMusicPlaying && !isPaused ? "❚❚" : "▶"}
                 </button>
               </div>
 
-              {/* Purple Waveform Bars */}
-              <div className="mt-4 flex h-[32px] items-center justify-center gap-[4px]">
-                {WAVEFORM_HEIGHTS.map((height, idx) => (
+              {/* Purple Waveform Bars (Live WebAudio Analyser) */}
+              <div
+                aria-hidden="true"
+                className="mt-4 flex h-[32px] items-center justify-center gap-[4px]"
+              >
+                {barHeights.map((height, idx) => (
                   <span
                     key={idx}
                     style={{
-                      height: `${isMusicPlaying && !isMuted ? height : 6}px`,
+                      height: `${isMusicAudible ? height : 6}px`,
                     }}
-                    className="w-[3px] rounded-full bg-[#9D84F6] transition-all duration-300"
+                    className="w-[3px] rounded-full bg-[#9D84F6] transition-[height] duration-150 ease-out"
                   />
                 ))}
               </div>
             </section>
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* =========================================================
           MODAL OVERLAY: DEMO ALERT 1 ("Feeling a little sleepy?")
       ========================================================= */}
       {activeAlert === "alert1" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#351080]/18 px-4 py-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6">
           <div className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]">
             {/* Yellow Bell Icon Box */}
             <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
@@ -632,7 +1109,7 @@ export default function FocusSessionPage() {
           MODAL OVERLAY: DEMO ALERT 2 ("Let's listen to your body")
       ========================================================= */}
       {activeAlert === "alert2" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#351080]/18 px-4 py-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6">
           <div className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]">
             {/* Yellow Ringing Bell Icon Box */}
             <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
@@ -678,14 +1155,12 @@ export default function FocusSessionPage() {
               right for you?
             </p>
 
-            {/* Option 1: I'll do a quick reset */}
+            {/* Option 1: Take a break -> langsung ke Break Session */}
             <button
               type="button"
-              onClick={async () => {
-                await monitor.chooseReset();
-                setActiveAlert("quick-reset");
-              }}
-              className="mt-5 flex w-full items-center justify-between rounded-[12px] border border-[#E4DCFA] bg-[#F2ECFF] px-4 py-3.5 text-left transition hover:bg-[#EAE1FF] active:scale-[0.99]"
+              onClick={handleTakeBreakFromAlert2}
+              disabled={isTransitioningBreak || isEnding}
+              className="mt-5 flex w-full items-center justify-between rounded-[12px] border border-[#E4DCFA] bg-[#F2ECFF] px-4 py-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-[#EAE1FF] enabled:active:scale-[0.96]"
             >
               <div className="flex items-center gap-3.5">
                 {/* Purple Circle Icon */}
@@ -712,13 +1187,15 @@ export default function FocusSessionPage() {
                     style={{ fontSize: "11px", fontWeight: 700 }}
                     className="!text-[11px] !font-bold text-[#4A2E86]"
                   >
-                    I&apos;ll do a quick reset
+                    {isTransitioningBreak
+                      ? "Starting break…"
+                      : `Take a ${breakMinutes}-min break`}
                   </div>
                   <div
                     style={{ fontSize: "9.5px", fontWeight: 400 }}
                     className="mt-0.5 !text-[9.5px] !font-normal text-[#5A5070]"
                   >
-                    Get a small suggestion before continuing
+                    Pause your timer and recharge before continuing
                   </div>
                 </div>
               </div>
@@ -734,7 +1211,8 @@ export default function FocusSessionPage() {
             <button
               type="button"
               onClick={handleEndSession}
-              className="mt-3 flex w-full items-center justify-between rounded-[12px] border border-[#F5DCE6] bg-[#FDF2F6] px-4 py-3.5 text-left transition hover:bg-[#FCE6EE] active:scale-[0.99]"
+              disabled={isTransitioningBreak || isEnding}
+              className="mt-3 flex w-full items-center justify-between rounded-[12px] border border-[#F5DCE6] bg-[#FDF2F6] px-4 py-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-[#FCE6EE] enabled:active:scale-[0.96]"
             >
               <div className="flex items-center gap-3.5">
                 {/* Berry Circle X Icon */}
@@ -747,7 +1225,7 @@ export default function FocusSessionPage() {
                     style={{ fontSize: "11px", fontWeight: 700 }}
                     className="!text-[11px] !font-bold text-[#9F3D69]"
                   >
-                    End my session
+                    {isEnding ? "Ending session…" : "End my session"}
                   </div>
                   <div
                     style={{ fontSize: "9.5px", fontWeight: 400 }}
@@ -763,123 +1241,6 @@ export default function FocusSessionPage() {
                 strokeWidth={2}
                 className="shrink-0 text-[#3A2A35]"
               />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================
-          MODAL OVERLAY: QUICK RESET ("Take a tiny pause")
-      ========================================================= */}
-      {activeAlert === "quick-reset" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#351080]/18 px-4 py-6">
-          <div className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]">
-            {/* Yellow Coffee Cup Icon Box */}
-            <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
-              <svg
-                width="26"
-                height="24"
-                viewBox="2 5 21 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 6H17V14C17 17.3137 14.3137 20 11 20H9C5.68629 20 3 17.3137 3 14V6Z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M17 8H19C20.6569 8 22 9.34315 22 11C22 12.6569 20.6569 14 19 14H17"
-                  stroke="currentColor"
-                  strokeWidth="2.3"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-
-            {/* Eyebrow & Heading */}
-            <div className="text-[9.5px] font-semibold tracking-[0.08em] text-[#7B728E] uppercase">
-              A MINI RESET
-            </div>
-            <h2 className="m-0 mt-1 text-[22px] font-bold tracking-tight text-[#2A1163]">
-              Take a tiny pause
-            </h2>
-            <p className="m-0 mt-2 text-[10.5px] leading-[1.6] text-[#7B728E]">
-              Before you get back to it, try one small thing. No need to overdo
-              it.
-            </p>
-
-            {/* 3 Numbered Reset Suggestions */}
-            <div className="mt-5 flex flex-col gap-3.5">
-              {/* 01: Breathe */}
-              <div className="flex items-center gap-3">
-                <span className="flex h-[25px] w-[25px] shrink-0 items-center justify-center rounded-full bg-[#FFF799] text-[9px] font-extrabold text-[#2A1163]">
-                  01
-                </span>
-                <div>
-                  <div className="text-[10.5px] font-bold text-[#2A1163]">
-                    Breathe
-                  </div>
-                  <div className="mt-0.5 text-[8.5px] text-[#7B728E]">
-                    Take three slow, deep breaths and gently relax your
-                    shoulders.
-                  </div>
-                </div>
-              </div>
-
-              {/* 02: Rest your eyes */}
-              <div className="flex items-center gap-3">
-                <span className="flex h-[25px] w-[25px] shrink-0 items-center justify-center rounded-full bg-[#FFF799] text-[9px] font-extrabold text-[#2A1163]">
-                  02
-                </span>
-                <div>
-                  <div className="text-[10.5px] font-bold text-[#2A1163]">
-                    Rest your eyes
-                  </div>
-                  <div className="mt-0.5 text-[8.5px] text-[#7B728E]">
-                    Look away from your screen and focus on something in the
-                    distance.
-                  </div>
-                </div>
-              </div>
-
-              {/* 03: Relax your hands */}
-              <div className="flex items-center gap-3">
-                <span className="flex h-[25px] w-[25px] shrink-0 items-center justify-center rounded-full bg-[#FFF799] text-[9px] font-extrabold text-[#2A1163]">
-                  03
-                </span>
-                <div>
-                  <div className="text-[10.5px] font-bold text-[#2A1163]">
-                    Relax your hands
-                  </div>
-                  <div className="mt-0.5 text-[8.5px] text-[#7B728E]">
-                    Release your grip, stretch your fingers, and loosen your
-                    wrists.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Start a 5-min break button */}
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.setItem(
-                  "eyva_focus_remaining_seconds",
-                  String(secondsLeft)
-                );
-                monitor.startResetBreak();
-                setActiveAlert(null);
-                router.push("/dashboard/break-session");
-              }}
-              style={{
-                color: "#FFFFFF",
-                fontWeight: 700,
-                fontSize: "11.5px",
-              }}
-              className="mt-6 flex w-full items-center justify-center rounded-[9px] border-0 bg-[#624794] py-3 px-4 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#2A1163] transition hover:bg-[#553B87] active:translate-y-[1px]"
-            >
-              Start a 5-min break
             </button>
           </div>
         </div>

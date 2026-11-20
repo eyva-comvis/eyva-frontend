@@ -66,7 +66,8 @@ export const sessionsApi = {
   predict: (sid: string, imageB64: string, requestId: string) =>
     apiRequest<PredictResult>(
       `/sessions/${sid}/predict`,
-      json({ image_b64: imageB64, client_ts: new Date().toISOString(), request_id: requestId })
+      json({ image_b64: imageB64, client_ts: new Date().toISOString(), request_id: requestId }),
+      { timeoutMs: 10_000 }
     ),
   respondAlert: (sid: string, alertId: string, action: AlertAction) =>
     apiRequest<{ session_ended: boolean; show_advice: boolean; advice: string[] }>(
@@ -80,9 +81,11 @@ export const sessionsApi = {
   list: (limit = 100, offset = 0) =>
     apiRequest<{ items: SessionListItem[] }>(`/sessions?limit=${limit}&offset=${offset}`),
   /** Rekomendasi AI untuk halaman Summary (LLM; bila tidak tersedia, teks cadangan). */
-  insights: (sid: string) => apiRequest<InsightResult>(`/sessions/${sid}/insights`, { method: "POST" }),
+  insights: (sid: string) =>
+    apiRequest<InsightResult>(`/sessions/${sid}/insights`, { method: "POST" }, { timeoutMs: 35_000 }),
   /** Tip AI singkat untuk halaman Break (sesi harus masih berjalan). */
-  breakTip: (sid: string) => apiRequest<InsightResult>(`/sessions/${sid}/break-tip`, { method: "POST" }),
+  breakTip: (sid: string) =>
+    apiRequest<InsightResult>(`/sessions/${sid}/break-tip`, { method: "POST" }, { timeoutMs: 35_000 }),
 };
 
 export interface InsightResult {

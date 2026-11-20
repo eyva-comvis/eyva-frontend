@@ -18,6 +18,8 @@ import {
   Music,
   ChevronDown,
 } from "lucide-react";
+import { unlockAudio } from "@/lib/audio";
+import { SOUNDTRACKS, unlockMusic, type SoundtrackName } from "@/lib/music";
 import { getCachedProfile, getUserProfile } from "@/services/api/profile";
 import {
   getActiveSession,
@@ -98,7 +100,7 @@ export default function HomePage() {
   const [customMinutes, setCustomMinutes] = useState("");
   const [presetMinutes, setPresetMinutes] = useState("");
   const [focusTimeError, setFocusTimeError] = useState("");
-  const [soundtrack, setSoundtrack] = useState("Soft Piano");
+  const [soundtrack, setSoundtrack] = useState<SoundtrackName>("Soft Piano");
   const [musicEnabled, setMusicEnabled] = useState(true);
 
   const [stats, setStats] = useState<WeekStats | null>(null);
@@ -179,6 +181,8 @@ export default function HomePage() {
   };
 
   const handleAllowCameraAndStart = async () => {
+    void unlockAudio();
+    void unlockMusic();
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -627,14 +631,15 @@ export default function HomePage() {
                   <select
                     id="focus-soundtrack"
                     value={soundtrack}
-                    onChange={(e) => setSoundtrack(e.target.value)}
+                    onChange={(e) => setSoundtrack(e.target.value as SoundtrackName)}
                     style={{ fontSize: "11px" }}
                     className="w-full appearance-none rounded-[9px] border border-[#DFD9EC] bg-white px-3.5 py-2.5 pr-9 !text-[11px] text-[#2A1163] outline-none transition focus:border-[#351080] cursor-pointer"
                   >
-                    <option value="Soft Piano">Soft Piano</option>
-                    <option value="Ambient Rain">Ambient Rain</option>
-                    <option value="Lo-Fi Study Beats">Lo-Fi Study Beats</option>
-                    <option value="White Noise">White Noise</option>
+                    {SOUNDTRACKS.map((track) => (
+                      <option key={track.name} value={track.name}>
+                        {track.name}
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown
                     size={15}

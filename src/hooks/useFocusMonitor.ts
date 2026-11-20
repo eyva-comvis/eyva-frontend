@@ -52,10 +52,21 @@ let inflight: Promise<ActiveSession | "missing-config"> | null = null;
 async function bootstrap(): Promise<ActiveSession | "missing-config"> {
   let current = getActiveSession();
   if (current?.resetBreak) {
-    // Kembali dari "quick reset": lanjutkan blok yang dijeda server sejak alert 2
-    await sessionsApi.resume(current.sessionId, current.blockId).catch(() => undefined);
-    current = { sessionId: current.sessionId, blockId: current.blockId };
-    setActiveSession(current);
+    // Kembali dari Break Session setelah Alert 2: otomatis resume blok yang dijeda server tanpa buat sesi baru
+    try {
+      await sessionsApi.resume(current.sessionId, current.blockId);
+      current = { sessionId: current.sessionId, blockId: current.blockId };
+      setActiveSession(current);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
+        setActiveSession(null);
+        throw new ApiError(
+          err.status,
+          "This session is no longer active. Please start a new one from Home."
+        );
+      }
+      throw err;
+    }
   }
   if (current) return current;
 
@@ -73,12 +84,17 @@ async function bootstrap(): Promise<ActiveSession | "missing-config"> {
   return current;
 }
 
+const SLOW_INIT_MS = 10_000;
+
 export interface FocusMonitor {
   ready: boolean;
+  isInitializing: boolean;
+  isSlow: boolean;
   status: DrowsinessStatus | null;
   faceDetected: boolean;
   alert: PredictAlert | null;
   error: string;
+  retryInit: () => void;
   acknowledge: () => Promise<void>;
   chooseReset: () => Promise<void>;
   startResetBreak: () => void;
@@ -99,6 +115,9 @@ export function useFocusMonitor(
   onMissingConfig: () => void
 ): FocusMonitor {
   const [active, setActive] = useState<ActiveSession | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isSlow, setIsSlow] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<DrowsinessStatus | null>(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [alert, setAlert] = useState<PredictAlert | null>(null);
@@ -110,16 +129,39 @@ export function useFocusMonitor(
   const missingConfigRef = useRef(onMissingConfig);
   missingConfigRef.current = onMissingConfig;
 
+  const retryInit = useCallback(() => {
+    inflight = null;
+    setError("");
+    setIsSlow(false);
+    setIsInitializing(true);
+    setAttempt((prev) => prev + 1);
+  }, []);
+
   // 1) Siapkan sesi: lanjutkan yang tersimpan, atau buat sesi + blok baru dari konfigurasi Home
   useEffect(() => {
     let cancelled = false;
-    // React dev (StrictMode) menjalankan effect dua kali: pakai satu proses bersama agar tidak membuat dua sesi
-    inflight ??= bootstrap().finally(() => {
-      inflight = null;
-    });
-    inflight
+    setIsInitializing(true);
+    setIsSlow(false);
+    setError("");
+
+    const slowTimer = setTimeout(() => {
+      if (!cancelled) setIsSlow(true);
+    }, SLOW_INIT_MS);
+
+    // React dev (StrictMode) menjalankan effect dua kali pada attempt=0: pakai satu proses bersama
+    const req =
+      attempt > 0
+        ? bootstrap()
+        : (inflight ??= bootstrap().finally(() => {
+            inflight = null;
+          }));
+
+    req
       .then((current) => {
         if (cancelled) return;
+        clearTimeout(slowTimer);
+        setIsSlow(false);
+        setIsInitializing(false);
         if (current === "missing-config") {
           missingConfigRef.current();
           return;
@@ -128,12 +170,17 @@ export function useFocusMonitor(
         setActive(current);
       })
       .catch((err) => {
-        if (!cancelled) setError(errorMessage(err));
+        if (cancelled) return;
+        clearTimeout(slowTimer);
+        setIsSlow(false);
+        setIsInitializing(false);
+        setError(errorMessage(err));
       });
     return () => {
       cancelled = true;
+      clearTimeout(slowTimer);
     };
-  }, []);
+  }, [attempt]);
 
   // 2) Loop frame: kirim satu frame, tunggu respons, jeda sebentar, ulangi
   useEffect(() => {
@@ -190,15 +237,18 @@ export function useFocusMonitor(
     setAlert(null);
   }, [alert]);
 
-  /** Alert 2 -> "I'll do a quick reset": blok tetap dijeda server sampai pengguna kembali. */
+  /** Alert 2 -> Break Session: blok tetap dijeda server sampai pengguna kembali dan /resume dipanggil. */
   const chooseReset = useCallback(async () => {
     const current = activeRef.current;
-    if (current && alert) await sessionsApi.respondAlert(current.sessionId, alert.id, "CONTINUE").catch(() => undefined);
+    if (current && alert) {
+      await sessionsApi.respondAlert(current.sessionId, alert.id, "CONTINUE").catch(() => undefined);
+    }
   }, [alert]);
 
   const startResetBreak = useCallback(() => {
     const current = activeRef.current;
     if (current) setActiveSession({ ...current, resetBreak: true });
+    setAlert(null);
   }, []);
 
   const endFromAlert = useCallback(async () => {
@@ -234,10 +284,13 @@ export function useFocusMonitor(
 
   return {
     ready: active !== null,
+    isInitializing,
+    isSlow,
     status,
     faceDetected,
     alert,
     error,
+    retryInit,
     acknowledge,
     chooseReset,
     startResetBreak,

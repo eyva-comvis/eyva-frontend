@@ -3,40 +3,81 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { saveTokens } from "@/lib/authStorage";
+import { clearAuth, saveTokens } from "@/lib/authStorage";
 import { refreshSession } from "@/services/api/client";
 import { landingPathAfterLogin } from "@/services/api/profile";
 
+interface CallbackOutcome {
+  redirect?: string;
+  error?: string;
+}
+
+// Satu proses bersama agar React StrictMode (dev) tidak menghapus #hash dua kali saat mount ganda
+let callbackTask: Promise<CallbackOutcome> | null = null;
+
 /**
  * Supabase mengembalikan pengguna ke sini setelah login Google, dengan token di bagian # URL.
- * Token disimpan, lalu dirapikan lewat backend (/auth/refresh) supaya batas umur login berlaku.
+ * Token disimpan sementara lalu diverifikasi lewat backend (/auth/refresh); bila gagal, token dihapus bersih.
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.slice(1) || window.location.search.slice(1));
-    // Hapus token dari address bar dan riwayat browser
-    window.history.replaceState(null, "", window.location.pathname);
+    let cancelled = false;
 
-    const failure = params.get("error_description") || params.get("error");
-    const access = params.get("access_token");
-    const refresh = params.get("refresh_token");
-    if (failure || !access || !refresh) {
-      setError(failure ? failure.replace(/\+/g, " ") : "Google sign-in did not finish. Please try again.");
-      return;
+    if (!callbackTask) {
+      const params = new URLSearchParams(
+        window.location.hash.slice(1) || window.location.search.slice(1)
+      );
+      // Hapus token dari address bar dan riwayat browser
+      window.history.replaceState(null, "", window.location.pathname);
+
+      const failure = params.get("error_description") || params.get("error");
+      const access = params.get("access_token");
+      const refresh = params.get("refresh_token");
+
+      callbackTask = (async (): Promise<CallbackOutcome> => {
+        if (failure || !access || !refresh) {
+          return {
+            error: failure
+              ? failure.replace(/\+/g, " ")
+              : "Google sign-in did not finish. Please try again.",
+          };
+        }
+
+        saveTokens({ access_token: access, refresh_token: refresh });
+        try {
+          // Tukar sekali lewat backend: mendapat session_expires_at dan memastikan token diterima server
+          if (!(await refreshSession())) {
+            clearAuth();
+            return {
+              error: "We couldn't confirm your Google sign-in. Please try again.",
+            };
+          }
+          return { redirect: await landingPathAfterLogin() };
+        } catch {
+          clearAuth();
+          return {
+            error: "We couldn't confirm your Google sign-in. Please try again.",
+          };
+        }
+      })();
     }
 
-    (async () => {
-      saveTokens({ access_token: access, refresh_token: refresh });
-      // Tukar sekali lewat backend: mendapat session_expires_at dan memastikan token diterima server
-      if (!(await refreshSession())) {
-        setError("We couldn't confirm your Google sign-in. Please try again.");
-        return;
+    callbackTask.then((result) => {
+      if (cancelled) return;
+      callbackTask = null;
+      if (result.error) {
+        setError(result.error);
+      } else if (result.redirect) {
+        router.replace(result.redirect);
       }
-      router.replace(await landingPathAfterLogin());
-    })();
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return (
@@ -48,7 +89,7 @@ export default function AuthCallbackPage() {
           <Link
             href="/login"
             style={{ color: "#FFFFFF" }}
-            className="inline-flex rounded-full bg-[#351080] px-6 py-2.5 text-[13px] font-bold !text-white hover:bg-[#43189E]"
+            className="inline-flex rounded-full bg-[#351080] px-6 py-2.5 text-[13px] font-bold !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96]"
           >
             Back to log in
           </Link>
