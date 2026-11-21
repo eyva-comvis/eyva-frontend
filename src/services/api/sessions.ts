@@ -55,7 +55,7 @@ export const sessionsApi = {
         title: cfg.title,
         configured_study_seconds: Math.round(cfg.studyMinutes * 60),
         configured_break_seconds: Math.round(cfg.breakMinutes * 60),
-        soundtrack: cfg.soundtrack ?? null,
+        soundtrack: cfg.soundtrack ? cfg.soundtrack.trim().slice(0, 40).trimEnd() : null,
       })
     ),
   startBlock: (sid: string) => apiRequest<{ id: string }>(`/sessions/${sid}/blocks`, { method: "POST" }),

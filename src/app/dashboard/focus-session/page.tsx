@@ -16,6 +16,10 @@ import {
   ChevronDown,
   RefreshCw,
 } from "lucide-react";
+import SpotifyEmbedPlayer, {
+  type SpotifyEmbedHandle,
+} from "@/components/music/SpotifyEmbedPlayer";
+import SpotifyPicker from "@/components/music/SpotifyPicker";
 import { EyvaErrorView } from "@/components/ui/EyvaStateView";
 import { useFocusMonitor } from "@/hooks/useFocusMonitor";
 import {
@@ -38,6 +42,14 @@ import {
   unlockMusic,
   type SoundtrackName,
 } from "@/lib/music";
+import {
+  DEFAULT_SPOTIFY_ITEM,
+  readSavedSpotifyItems,
+  sanitizeSpotifyItem,
+  spotifyTypeLabel,
+  type MusicSource,
+  type SpotifyItem,
+} from "@/lib/spotify";
 import { sessionsApi, type DrowsinessStatus } from "@/services/api/sessions";
 
 const FACE_LOST_DEBOUNCE_MS = 1600;
@@ -63,8 +75,13 @@ export default function FocusSessionPage() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [soundtrack, setSoundtrack] = useState<SoundtrackName>("Soft Piano");
+  const [musicSource, setMusicSource] = useState<MusicSource>("builtin");
+  const [spotifyItem, setSpotifyItem] = useState<SpotifyItem>(DEFAULT_SPOTIFY_ITEM);
+  const [isSpotifyPlaying, setIsSpotifyPlaying] = useState(false);
+  const [showSpotifyPicker, setShowSpotifyPicker] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const spotifyPlayerRef = useRef<SpotifyEmbedHandle | null>(null);
   const [barHeights, setBarHeights] = useState<number[]>(() =>
     WAVEFORM_HEIGHTS.map(() => 6)
   );
@@ -103,6 +120,7 @@ export default function FocusSessionPage() {
   const shouldPlayMusic =
     isHydrated &&
     monitor.ready &&
+    musicSource === "builtin" &&
     isMusicPlaying &&
     !isPaused &&
     !isEnding &&
@@ -110,6 +128,14 @@ export default function FocusSessionPage() {
   const shouldPlayMusicRef = useRef(shouldPlayMusic);
   shouldPlayMusicRef.current = shouldPlayMusic;
   const isMusicAudible = shouldPlayMusic && !isMuted;
+  const shouldPauseSpotify =
+    !monitor.ready ||
+    isPaused ||
+    isEnding ||
+    isTransitioningBreak ||
+    activeAlert === "alert2";
+  const isAnyMusicActive =
+    musicSource === "spotify" ? isSpotifyPlaying && !isPaused : isMusicAudible;
 
   const confirmedCueRef = useRef<CameraSoundCue | null>(null);
   const lastPlayedAtRef = useRef<Partial<Record<CameraSoundCue | "alert1" | "alert2", number>>>({});
@@ -120,11 +146,13 @@ export default function FocusSessionPage() {
   useEffect(() => {
     const unlock = () => {
       void unlockAudio();
-      void unlockMusic().then((ok) => {
-        if (ok && shouldPlayMusicRef.current && !getMusicState().playing) {
-          void startMusic(soundtrackRef.current);
-        }
-      });
+      if (shouldPlayMusicRef.current) {
+        void unlockMusic().then((ok) => {
+          if (ok && shouldPlayMusicRef.current && !getMusicState().playing) {
+            void startMusic(soundtrackRef.current);
+          }
+        });
+      }
     };
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
@@ -136,17 +164,22 @@ export default function FocusSessionPage() {
         faceLostTimerRef.current = null;
       }
       stopMusic(true);
+      spotifyPlayerRef.current?.pause();
     };
   }, []);
 
-  // Sinkronisasi mesin musik latar dengan Play/Pause, Pause sesi, End, dan pindah ke Break
+  // Sinkronisasi mesin musik latar dengan Play/Pause, mode Eyva Calm vs Spotify, Pause sesi, End, dan pindah ke Break
   useEffect(() => {
+    if (musicSource === "spotify") {
+      stopMusic(true);
+      return;
+    }
     if (shouldPlayMusic) {
       void startMusic(soundtrack);
     } else {
       stopMusic();
     }
-  }, [shouldPlayMusic, soundtrack]);
+  }, [musicSource, shouldPlayMusic, soundtrack]);
 
   // Sinkronisasi tombol Mute/Unmute ke volume musik
   useEffect(() => {
@@ -320,6 +353,18 @@ export default function FocusSessionPage() {
         if (parsed.soundtrack) {
           setSoundtrack(normalizeSoundtrack(parsed.soundtrack));
         }
+        if (parsed.musicSource === "spotify" || parsed.musicSource === "builtin") {
+          setMusicSource(parsed.musicSource);
+        }
+        const restoredSpotify = sanitizeSpotifyItem(parsed.spotifyItem);
+        if (restoredSpotify) {
+          setSpotifyItem(restoredSpotify);
+        } else {
+          const savedList = readSavedSpotifyItems();
+          if (savedList[0]) {
+            setSpotifyItem(savedList[0]);
+          }
+        }
         if (typeof parsed.musicEnabled === "boolean") {
           setIsMusicPlaying(parsed.musicEnabled);
         }
@@ -441,7 +486,12 @@ export default function FocusSessionPage() {
     isTransitioningBreak,
   ]);
 
-  const persistMusicConfig = (patch: { soundtrack?: SoundtrackName; musicEnabled?: boolean }) => {
+  const persistMusicConfig = (patch: {
+    soundtrack?: SoundtrackName;
+    musicEnabled?: boolean;
+    musicSource?: MusicSource;
+    spotifyItem?: SpotifyItem;
+  }) => {
     try {
       const raw = localStorage.getItem("eyva_session_config");
       const current = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
@@ -449,6 +499,32 @@ export default function FocusSessionPage() {
     } catch {
       // abaikan bila localStorage tidak tersedia
     }
+  };
+
+  const handleSwitchMusicSource = (nextSource: MusicSource) => {
+    if (nextSource === musicSource) return;
+    void unlockAudio();
+    if (nextSource === "spotify") {
+      stopMusic(true);
+      setMusicSource("spotify");
+      persistMusicConfig({ musicSource: "spotify", spotifyItem });
+    } else {
+      spotifyPlayerRef.current?.pause();
+      setIsSpotifyPlaying(false);
+      setShowSpotifyPicker(false);
+      void unlockMusic();
+      setMusicSource("builtin");
+      persistMusicConfig({ musicSource: "builtin" });
+    }
+  };
+
+  const handleSelectSpotifyItem = (item: SpotifyItem) => {
+    void unlockAudio();
+    stopMusic(true);
+    setSpotifyItem(item);
+    setMusicSource("spotify");
+    setShowSpotifyPicker(false);
+    persistMusicConfig({ musicSource: "spotify", spotifyItem: item });
   };
 
   const handleToggleMusic = () => {
@@ -463,7 +539,9 @@ export default function FocusSessionPage() {
 
   const handleToggleMute = () => {
     void unlockAudio();
-    void unlockMusic();
+    if (musicSource === "builtin") {
+      void unlockMusic();
+    }
     setIsMuted((prev) => !prev);
   };
 
@@ -477,6 +555,7 @@ export default function FocusSessionPage() {
 
   const goToSummary = () => {
     stopMusic(true);
+    spotifyPlayerRef.current?.pause();
     localStorage.removeItem("eyva_focus_remaining_seconds");
     localStorage.removeItem("eyva_focus_total_seconds");
     router.push("/dashboard/summary");
@@ -486,6 +565,7 @@ export default function FocusSessionPage() {
     if (isEnding || isTransitioningBreak) return;
     setIsEnding(true);
     stopMusic(true);
+    spotifyPlayerRef.current?.pause();
     if (monitor.alert) await monitor.endFromAlert();
     else await monitor.endSession("MANUAL");
     goToSummary();
@@ -495,6 +575,7 @@ export default function FocusSessionPage() {
     if (isTransitioningBreak || isEnding) return;
     setIsTransitioningBreak(true);
     stopMusic(true);
+    spotifyPlayerRef.current?.pause();
     try {
       await monitor.chooseReset();
       localStorage.setItem(
@@ -515,14 +596,20 @@ export default function FocusSessionPage() {
     if (!isHydrated || !monitor.ready || secondsLeft > 0 || isEnding) return;
     setIsEnding(true);
     stopMusic(true);
+    spotifyPlayerRef.current?.pause();
     monitor.completeSession().then(goToSummary);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft, isHydrated, monitor.ready]);
 
   const togglePause = () => {
     void unlockAudio();
-    void unlockMusic();
+    if (musicSource === "builtin") {
+      void unlockMusic();
+    }
     const next = !isPaused;
+    if (next) {
+      spotifyPlayerRef.current?.pause();
+    }
     setIsPaused(next);
     monitor.setPaused(next);
   };
@@ -848,7 +935,15 @@ export default function FocusSessionPage() {
               <span>{focusedMinutes} min focused</span>
               <span className="inline-flex items-center gap-1.5">
                 <Music size={11} />
-                <span>{isMusicAudible ? "Music on" : "Music off"}</span>
+                <span>
+                  {musicSource === "spotify"
+                    ? isAnyMusicActive
+                      ? "Spotify on"
+                      : "Spotify ready"
+                    : isAnyMusicActive
+                      ? "Music on"
+                      : "Music off"}
+                </span>
               </span>
             </div>
           </section>
@@ -917,7 +1012,7 @@ export default function FocusSessionPage() {
             {/* BOTTOM RIGHT CARD: BACKGROUND CALM (MUSIC) */}
             <section className="rounded-[20px] border border-[#EAE4F3] bg-white p-6 shadow-[0_6px_24px_rgba(45,10,115,0.06)]">
               {/* Header Row */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-[#FFF238] text-[#351080]">
                     <Sliders size={17} strokeWidth={2.2} />
@@ -927,97 +1022,213 @@ export default function FocusSessionPage() {
                       A little background calm
                     </div>
                     <div className="text-[10px] text-[#7B728E]">
-                      {isMuted
-                        ? "Audio muted"
-                        : isPaused
+                      {musicSource === "spotify"
+                        ? isPaused
                           ? "Paused with session"
-                          : isMusicPlaying
-                            ? "Music is on"
-                            : "Music is paused"}
+                          : isSpotifyPlaying
+                            ? isMuted
+                              ? "Spotify playing · SFX muted"
+                              : "Spotify playing"
+                            : isMuted
+                              ? "Spotify ready · SFX muted"
+                              : "Spotify ready"
+                        : isMuted
+                          ? "Audio muted"
+                          : isPaused
+                            ? "Paused with session"
+                            : isMusicPlaying
+                              ? "Music is on"
+                              : "Music is paused"}
                     </div>
                   </div>
                 </div>
 
-                {/* Volume Button */}
-                <button
-                  type="button"
-                  onClick={handleToggleMute}
-                  aria-label={isMuted ? "Unmute audio" : "Mute audio"}
-                  className="flex h-[32px] w-[32px] items-center justify-center rounded-[8px] border border-[#E5DFEE] bg-white text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#F5F1FC] enabled:active:scale-[0.96]"
-                >
-                  {isMuted ? (
-                    <VolumeX size={15} strokeWidth={2} />
-                  ) : (
-                    <Volume2 size={15} strokeWidth={2} />
-                  )}
-                </button>
+                {/* Quick Source Switcher + Volume/SFX Mute Button */}
+                <div className="flex items-center gap-2">
+                  <div
+                    role="tablist"
+                    aria-label="Music source"
+                    className="inline-flex rounded-[10px] border border-[#E5DFEE] bg-[#F4F0FC] p-[3px]"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={musicSource === "builtin"}
+                      onClick={() => handleSwitchMusicSource("builtin")}
+                      className={`rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-[background-color,color] duration-150 ${
+                        musicSource === "builtin"
+                          ? "bg-[#351080] !text-white shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                          : "bg-transparent text-[#6C5B8D] hover:text-[#351080]"
+                      }`}
+                    >
+                      Eyva Calm
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={musicSource === "spotify"}
+                      onClick={() => handleSwitchMusicSource("spotify")}
+                      className={`inline-flex items-center gap-1.5 rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-[background-color,color] duration-150 ${
+                        musicSource === "spotify"
+                          ? "bg-[#351080] !text-white shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                          : "bg-transparent text-[#6C5B8D] hover:text-[#351080]"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-[6px] w-[6px] rounded-full bg-[#1DB954]"
+                      />
+                      <span>Spotify</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleMute}
+                    aria-label={
+                      musicSource === "spotify"
+                        ? isMuted
+                          ? "Unmute camera alert sounds"
+                          : "Mute camera alert sounds"
+                        : isMuted
+                          ? "Unmute audio"
+                          : "Mute audio"
+                    }
+                    title={
+                      musicSource === "spotify"
+                        ? isMuted
+                          ? "Aktifkan suara status kamera"
+                          : "Bisukan suara status kamera"
+                        : isMuted
+                          ? "Unmute audio"
+                          : "Mute audio"
+                    }
+                    className="flex h-[32px] w-[32px] items-center justify-center rounded-[8px] border border-[#E5DFEE] bg-white text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#F5F1FC] motion-safe:enabled:active:scale-[0.96]"
+                  >
+                    {isMuted ? (
+                      <VolumeX size={15} strokeWidth={2} />
+                    ) : (
+                      <Volume2 size={15} strokeWidth={2} />
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Track Player Box */}
-              <div className="mt-4 flex items-center justify-between gap-3 rounded-[11px] border border-[#E6E2DC] bg-[#F8F7F2] px-4 py-2.5">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <Music
-                    size={16}
-                    strokeWidth={2.2}
-                    className="shrink-0 text-[#2D0A73]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="relative inline-flex max-w-full items-center">
-                      <select
-                        aria-label="Choose focus soundtrack"
-                        value={soundtrack}
-                        onChange={(e) =>
-                          handleTrackChange(e.target.value as SoundtrackName)
-                        }
-                        style={{ fontSize: "10.5px", fontWeight: 700 }}
-                        className="max-w-full cursor-pointer appearance-none truncate bg-transparent pr-4 !text-[10.5px] !font-bold text-[#2A1163] outline-none focus-visible:underline"
-                      >
-                        {SOUNDTRACKS.map((track) => (
-                          <option key={track.name} value={track.name}>
-                            {track.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={11}
-                        strokeWidth={2.4}
+              {musicSource === "builtin" ? (
+                <>
+                  {/* Track Player Box */}
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-[11px] border border-[#E6E2DC] bg-[#F8F7F2] px-4 py-2.5">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <Music
+                        size={16}
+                        strokeWidth={2.2}
+                        className="shrink-0 text-[#2D0A73]"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="relative inline-flex max-w-full items-center">
+                          <select
+                            aria-label="Choose focus soundtrack"
+                            value={soundtrack}
+                            onChange={(e) =>
+                              handleTrackChange(e.target.value as SoundtrackName)
+                            }
+                            style={{ fontSize: "10.5px", fontWeight: 700 }}
+                            className="max-w-full cursor-pointer appearance-none truncate bg-transparent pr-4 !text-[10.5px] !font-bold text-[#2A1163] outline-none focus-visible:underline"
+                          >
+                            {SOUNDTRACKS.map((track) => (
+                              <option key={track.name} value={track.name}>
+                                {track.name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                            size={11}
+                            strokeWidth={2.4}
+                            aria-hidden="true"
+                            className="pointer-events-none absolute right-0 text-[#5A5070]"
+                          />
+                        </div>
+                        <div className="text-[8.5px] text-[#7B728E]">
+                          {getSoundtrackSubtitle(soundtrack)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleMusic}
+                      disabled={isPaused || isEnding}
+                      aria-label={isMusicPlaying ? "Pause music" : "Play music"}
+                      style={{ color: "#FFFFFF", fontSize: "9px", fontWeight: 700 }}
+                      className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-0 bg-[#2D0A73] !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] motion-safe:enabled:active:scale-[0.96]"
+                    >
+                      {isMusicPlaying && !isPaused ? "❚❚" : "▶"}
+                    </button>
+                  </div>
+
+                  {/* Purple Waveform Bars (Live WebAudio Analyser) */}
+                  <div
+                    aria-hidden="true"
+                    className="mt-4 flex h-[32px] items-center justify-center gap-[4px]"
+                  >
+                    {barHeights.map((height, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          height: `${isMusicAudible ? height : 6}px`,
+                        }}
+                        className="w-[3px] rounded-full bg-[#9D84F6] transition-[height] duration-150 ease-out"
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {/* Selected Spotify Strip + Mid-session Change button */}
+                  <div className="flex items-center justify-between gap-2.5 rounded-[11px] border border-[#E6E0F2] bg-[#FAF8FF] px-3.5 py-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span
                         aria-hidden="true"
-                        className="pointer-events-none absolute right-0 text-[#5A5070]"
+                        className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[#1DB954]"
+                      />
+                      <span className="truncate text-[11px] font-bold text-[#2A1163]">
+                        {spotifyItem.title}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-[#EFE9FF] px-2 py-0.5 text-[9px] font-semibold text-[#5C3D99]">
+                        {spotifyTypeLabel(spotifyItem.type)}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowSpotifyPicker((prev) => !prev)}
+                      aria-expanded={showSpotifyPicker}
+                      className="shrink-0 rounded-[7px] border border-[#DDD3F2] bg-white px-2.5 py-1 text-[10px] font-bold text-[#351080] transition-[background-color,border-color,transform] duration-150 hover:border-[#C5B5E8] hover:bg-[#F2ECFF] motion-safe:enabled:active:scale-[0.96]"
+                    >
+                      {showSpotifyPicker ? "Close" : "Change"}
+                    </button>
+                  </div>
+
+                  {/* Mid-session Spotify Picker (does not reset timer/session) */}
+                  {showSpotifyPicker && (
+                    <div className="rounded-[12px] border border-[#EAE4F3] bg-[#FDFCFE] p-3">
+                      <SpotifyPicker
+                        compact
+                        selected={spotifyItem}
+                        onSelect={handleSelectSpotifyItem}
                       />
                     </div>
-                    <div className="text-[8.5px] text-[#7B728E]">
-                      {getSoundtrackSubtitle(soundtrack)}
-                    </div>
-                  </div>
-                </div>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={handleToggleMusic}
-                  disabled={isPaused || isEnding}
-                  aria-label={isMusicPlaying ? "Pause music" : "Play music"}
-                  style={{ color: "#FFFFFF", fontSize: "9px", fontWeight: 700 }}
-                  className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-0 bg-[#2D0A73] !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] enabled:active:scale-[0.96]"
-                >
-                  {isMusicPlaying && !isPaused ? "❚❚" : "▶"}
-                </button>
-              </div>
-
-              {/* Purple Waveform Bars (Live WebAudio Analyser) */}
-              <div
-                aria-hidden="true"
-                className="mt-4 flex h-[32px] items-center justify-center gap-[4px]"
-              >
-                {barHeights.map((height, idx) => (
-                  <span
-                    key={idx}
-                    style={{
-                      height: `${isMusicAudible ? height : 6}px`,
-                    }}
-                    className="w-[3px] rounded-full bg-[#9D84F6] transition-[height] duration-150 ease-out"
+                  {/* Spotify Embed Player (IFrame API + fallback iframe) */}
+                  <SpotifyEmbedPlayer
+                    ref={spotifyPlayerRef}
+                    item={spotifyItem}
+                    paused={shouldPauseSpotify}
+                    onPlaybackChange={setIsSpotifyPlaying}
                   />
-                ))}
-              </div>
+                </div>
+              )}
             </section>
           </div>
         </div>

@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  formatBackendSoundtrack,
+  type MusicSource,
+  type SpotifyItem,
+} from "@/lib/spotify";
 import { ApiError, errorMessage } from "@/services/api/client";
 import {
   getActiveSession,
@@ -23,6 +28,8 @@ interface SessionConfig {
   breakDurationMinutes?: number;
   soundtrack?: string;
   musicEnabled?: boolean;
+  musicSource?: MusicSource;
+  spotifyItem?: SpotifyItem | null;
 }
 
 function readConfig(): SessionConfig | null {
@@ -76,7 +83,12 @@ async function bootstrap(): Promise<ActiveSession | "missing-config"> {
     title: cfg.title?.trim() || "Study Session",
     studyMinutes: cfg.durationMinutes,
     breakMinutes: cfg.breakDurationMinutes ?? 5,
-    soundtrack: cfg.musicEnabled === false ? null : cfg.soundtrack,
+    soundtrack: formatBackendSoundtrack({
+      musicEnabled: cfg.musicEnabled,
+      musicSource: cfg.musicSource,
+      soundtrack: cfg.soundtrack,
+      spotifyItem: cfg.spotifyItem,
+    }),
   });
   const block = await sessionsApi.startBlock(created.id);
   current = { sessionId: created.id, blockId: block.id };

@@ -18,8 +18,16 @@ import {
   Music,
   ChevronDown,
 } from "lucide-react";
+import SpotifyPicker from "@/components/music/SpotifyPicker";
 import { unlockAudio } from "@/lib/audio";
 import { SOUNDTRACKS, unlockMusic, type SoundtrackName } from "@/lib/music";
+import {
+  DEFAULT_SPOTIFY_ITEM,
+  readSavedSpotifyItems,
+  sanitizeSpotifyItem,
+  type MusicSource,
+  type SpotifyItem,
+} from "@/lib/spotify";
 import { getCachedProfile, getUserProfile } from "@/services/api/profile";
 import {
   getActiveSession,
@@ -102,6 +110,8 @@ export default function HomePage() {
   const [focusTimeError, setFocusTimeError] = useState("");
   const [soundtrack, setSoundtrack] = useState<SoundtrackName>("Soft Piano");
   const [musicEnabled, setMusicEnabled] = useState(true);
+  const [musicSource, setMusicSource] = useState<MusicSource>("builtin");
+  const [spotifyItem, setSpotifyItem] = useState<SpotifyItem>(DEFAULT_SPOTIFY_ITEM);
 
   const [stats, setStats] = useState<WeekStats | null>(null);
   const [rhythm, setRhythm] = useState<StatsResult | null>(null);
@@ -110,6 +120,30 @@ export default function HomePage() {
     const cached = getCachedProfile();
     setUsername(cached.username);
     setAvatarSrc(cached.avatarSrc);
+
+    try {
+      const savedCfgRaw = localStorage.getItem("eyva_session_config");
+      const savedSpotifyList = readSavedSpotifyItems();
+      let restoredSpotify: SpotifyItem | null = null;
+      if (savedCfgRaw) {
+        const parsed = JSON.parse(savedCfgRaw) as {
+          musicSource?: unknown;
+          spotifyItem?: unknown;
+        };
+        if (parsed.musicSource === "spotify" || parsed.musicSource === "builtin") {
+          setMusicSource(parsed.musicSource);
+        }
+        restoredSpotify = sanitizeSpotifyItem(parsed.spotifyItem);
+      }
+      if (restoredSpotify) {
+        setSpotifyItem(restoredSpotify);
+      } else if (savedSpotifyList[0]) {
+        setSpotifyItem(savedSpotifyList[0]);
+      }
+    } catch {
+      // abaikan bila localStorage tidak tersedia
+    }
+
     getUserProfile()
       .then((p) => {
         if (!p.avatarSelected) {
@@ -175,6 +209,8 @@ export default function HomePage() {
         durationMinutes: numericDuration,
         soundtrack,
         musicEnabled,
+        musicSource,
+        spotifyItem,
       })
     );
     setModalStep("camera-setup");
@@ -182,7 +218,9 @@ export default function HomePage() {
 
   const handleAllowCameraAndStart = async () => {
     void unlockAudio();
-    void unlockMusic();
+    if (musicSource === "builtin") {
+      void unlockMusic();
+    }
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -475,10 +513,14 @@ export default function HomePage() {
           MODAL OVERLAY (STEP 1: FOCUS SETUP | STEP 2: CAMERA SETUP)
       ========================================================= */}
       {modalStep && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#351080]/18 px-4 py-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6">
           {/* STEP 1: LET'S SET YOUR FOCUS */}
           {modalStep === "focus-setup" && (
-            <div className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]">
+            <div
+              className={`relative max-h-[calc(100vh-3rem)] w-full overflow-y-auto overscroll-contain rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)] transition-[max-width] duration-150 ${
+                musicSource === "spotify" ? "max-w-[460px]" : "max-w-[395px]"
+              }`}
+            >
               {/* Close Button */}
               <button
                 type="button"
@@ -621,31 +663,88 @@ export default function HomePage() {
 
               {/* Focus soundtrack */}
               <div className="mt-4">
-                <label
-                  htmlFor="focus-soundtrack"
-                  className="mb-1.5 block text-[11px] font-bold text-[#2A1163]"
-                >
-                  Focus soundtrack
-                </label>
-                <div className="relative flex items-center">
-                  <select
-                    id="focus-soundtrack"
-                    value={soundtrack}
-                    onChange={(e) => setSoundtrack(e.target.value as SoundtrackName)}
-                    style={{ fontSize: "11px" }}
-                    className="w-full appearance-none rounded-[9px] border border-[#DFD9EC] bg-white px-3.5 py-2.5 pr-9 !text-[11px] text-[#2A1163] outline-none transition focus:border-[#351080] cursor-pointer"
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <label
+                    htmlFor={
+                      musicSource === "builtin" ? "focus-soundtrack" : undefined
+                    }
+                    className="block text-[11px] font-bold text-[#2A1163]"
                   >
-                    {SOUNDTRACKS.map((track) => (
-                      <option key={track.name} value={track.name}>
-                        {track.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={15}
-                    className="pointer-events-none absolute right-3 text-[#2A1163]"
-                  />
+                    Focus soundtrack
+                  </label>
+
+                  {/* Tab switcher: Eyva Calm | Spotify */}
+                  <div
+                    role="tablist"
+                    aria-label="Choose background music source"
+                    className="inline-flex rounded-[10px] border border-[#E5DFEE] bg-[#F4F0FC] p-[3px]"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={musicSource === "builtin"}
+                      onClick={() => setMusicSource("builtin")}
+                      className={`rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-[background-color,color] duration-150 ${
+                        musicSource === "builtin"
+                          ? "bg-[#351080] !text-white shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                          : "bg-transparent text-[#6C5B8D] hover:text-[#351080]"
+                      }`}
+                    >
+                      Eyva Calm
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={musicSource === "spotify"}
+                      onClick={() => setMusicSource("spotify")}
+                      className={`inline-flex items-center gap-1.5 rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-[background-color,color] duration-150 ${
+                        musicSource === "spotify"
+                          ? "bg-[#351080] !text-white shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                          : "bg-transparent text-[#6C5B8D] hover:text-[#351080]"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-[6px] w-[6px] rounded-full bg-[#1DB954]"
+                      />
+                      <span>Spotify</span>
+                    </button>
+                  </div>
                 </div>
+
+                {musicSource === "builtin" ? (
+                  <div className="relative flex items-center">
+                    <select
+                      id="focus-soundtrack"
+                      value={soundtrack}
+                      onChange={(e) =>
+                        setSoundtrack(e.target.value as SoundtrackName)
+                      }
+                      style={{ fontSize: "11px" }}
+                      className="w-full appearance-none rounded-[9px] border border-[#DFD9EC] bg-white px-3.5 py-2.5 pr-9 !text-[11px] text-[#2A1163] outline-none transition-[border-color] duration-150 focus:border-[#351080] cursor-pointer"
+                    >
+                      {SOUNDTRACKS.map((track) => (
+                        <option key={track.name} value={track.name}>
+                          {track.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={15}
+                      className="pointer-events-none absolute right-3 text-[#2A1163]"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-[12px] border border-[#EAE4F3] bg-[#FDFCFE] p-2.5">
+                    <SpotifyPicker
+                      selected={spotifyItem}
+                      onSelect={(item) => {
+                        setSpotifyItem(item);
+                        setMusicEnabled(true);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Music during focus toggle */}
