@@ -120,11 +120,15 @@ export interface SpotifyEmbedHandle {
 interface SpotifyEmbedPlayerProps {
   item: SpotifyItem;
   paused: boolean;
+  compactOnly?: boolean;
   onPlaybackChange?: (isPlaying: boolean) => void;
 }
 
 const SpotifyEmbedPlayer = forwardRef<SpotifyEmbedHandle, SpotifyEmbedPlayerProps>(
-  function SpotifyEmbedPlayer({ item, paused, onPlaybackChange }, ref) {
+  function SpotifyEmbedPlayer(
+    { item, paused, compactOnly = false, onPlaybackChange },
+    ref
+  ) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const controllerRef = useRef<SpotifyEmbedController | null>(null);
     const loadedUriRef = useRef<string | null>(null);
@@ -133,7 +137,8 @@ const SpotifyEmbedPlayer = forwardRef<SpotifyEmbedHandle, SpotifyEmbedPlayerProp
     const pausedRef = useRef(paused);
     pausedRef.current = paused;
 
-    const supportsExpand = item.type === "playlist" || item.type === "album";
+    const supportsExpand =
+      !compactOnly && (item.type === "playlist" || item.type === "album");
     const [expanded, setExpanded] = useState(false);
     const [useFallback, setUseFallback] = useState(false);
     const [isLoading, setIsLoading] = useState(true);

@@ -17,10 +17,22 @@ import {
   X,
   Music,
   ChevronDown,
+  Play,
+  Square,
 } from "lucide-react";
 import SpotifyPicker from "@/components/music/SpotifyPicker";
 import { unlockAudio } from "@/lib/audio";
-import { SOUNDTRACKS, unlockMusic, type SoundtrackName } from "@/lib/music";
+import {
+  SOUNDTRACKS,
+  getBars,
+  getSoundtrackSubtitle,
+  setMusicMuted,
+  setTrack,
+  startMusic,
+  stopMusic,
+  unlockMusic,
+  type SoundtrackName,
+} from "@/lib/music";
 import {
   DEFAULT_SPOTIFY_ITEM,
   readSavedSpotifyItems,
@@ -112,6 +124,8 @@ export default function HomePage() {
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [musicSource, setMusicSource] = useState<MusicSource>("builtin");
   const [spotifyItem, setSpotifyItem] = useState<SpotifyItem>(DEFAULT_SPOTIFY_ITEM);
+  const [isPreviewingBuiltin, setIsPreviewingBuiltin] = useState(false);
+  const [previewBars, setPreviewBars] = useState<number[]>([4, 4, 4, 4, 4, 4]);
 
   const [stats, setStats] = useState<WeekStats | null>(null);
   const [rhythm, setRhythm] = useState<StatsResult | null>(null);
@@ -163,6 +177,81 @@ export default function HomePage() {
       .catch(() => undefined);
   }, [router]);
 
+  // Hentikan preview WebAudio otomatis bila modal ditutup, pindah tab ke Spotify, atau halaman unmount
+  useEffect(() => {
+    if (
+      modalStep !== "focus-setup" ||
+      musicSource !== "builtin" ||
+      !musicEnabled
+    ) {
+      if (isPreviewingBuiltin) {
+        stopMusic(true);
+        setIsPreviewingBuiltin(false);
+      }
+    }
+  }, [modalStep, musicSource, musicEnabled, isPreviewingBuiltin]);
+
+  useEffect(() => {
+    return () => {
+      stopMusic(true);
+    };
+  }, []);
+
+  // Animasi mini level bar saat preview Eyva Calm aktif (hormati prefers-reduced-motion)
+  useEffect(() => {
+    if (!isPreviewingBuiltin) {
+      setPreviewBars([4, 4, 4, 4, 4, 4]);
+      return;
+    }
+
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      setPreviewBars([7, 11, 8, 12, 9, 6]);
+      return;
+    }
+
+    let rafId = 0;
+    let lastTs = 0;
+    const tick = (ts: number) => {
+      if (ts - lastTs >= 65) {
+        lastTs = ts;
+        const levels = getBars(6);
+        setPreviewBars(
+          levels.map((lv, idx) =>
+            Math.min(13, Math.max(4, Math.round(4 + lv * 9 + ((idx % 2) * 1.5))))
+          )
+        );
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isPreviewingBuiltin]);
+
+  const handleToggleBuiltinPreview = async () => {
+    if (isPreviewingBuiltin) {
+      stopMusic(true);
+      setIsPreviewingBuiltin(false);
+      return;
+    }
+    setMusicEnabled(true);
+    setMusicMuted(false);
+    await unlockMusic();
+    const started = await startMusic(soundtrack);
+    if (started) {
+      setIsPreviewingBuiltin(true);
+    }
+  };
+
+  const handleBuiltinSoundtrackChange = (next: SoundtrackName) => {
+    setSoundtrack(next);
+    if (isPreviewingBuiltin) {
+      setTrack(next);
+    }
+  };
+
   const handleContinueToCamera = () => {
     const cleanTitle = sessionTitle.trim();
     const duration = (customMinutes || presetMinutes).trim();
@@ -213,6 +302,8 @@ export default function HomePage() {
         spotifyItem,
       })
     );
+    stopMusic(true);
+    setIsPreviewingBuiltin(false);
     setModalStep("camera-setup");
   };
 
@@ -713,30 +804,92 @@ export default function HomePage() {
                 </div>
 
                 {musicSource === "builtin" ? (
-                  <div className="relative flex items-center">
-                    <select
-                      id="focus-soundtrack"
-                      value={soundtrack}
-                      onChange={(e) =>
-                        setSoundtrack(e.target.value as SoundtrackName)
-                      }
-                      style={{ fontSize: "11px" }}
-                      className="w-full appearance-none rounded-[9px] border border-[#DFD9EC] bg-white px-3.5 py-2.5 pr-9 !text-[11px] text-[#2A1163] outline-none transition-[border-color] duration-150 focus:border-[#351080] cursor-pointer"
-                    >
-                      {SOUNDTRACKS.map((track) => (
-                        <option key={track.name} value={track.name}>
-                          {track.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={15}
-                      className="pointer-events-none absolute right-3 text-[#2A1163]"
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-stretch gap-2">
+                      <div className="relative flex min-w-0 flex-1 items-center">
+                        <select
+                          id="focus-soundtrack"
+                          value={soundtrack}
+                          onChange={(e) =>
+                            handleBuiltinSoundtrackChange(
+                              e.target.value as SoundtrackName
+                            )
+                          }
+                          style={{ fontSize: "11px" }}
+                          className="w-full appearance-none rounded-[9px] border border-[#DFD9EC] bg-white px-3.5 py-2.5 pr-9 !text-[11px] text-[#2A1163] outline-none transition-[border-color] duration-150 focus:border-[#351080] cursor-pointer"
+                        >
+                          {SOUNDTRACKS.map((track) => (
+                            <option key={track.name} value={track.name}>
+                              {track.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size={15}
+                          className="pointer-events-none absolute right-3 text-[#2A1163]"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleBuiltinPreview()}
+                        aria-pressed={isPreviewingBuiltin}
+                        aria-label={
+                          isPreviewingBuiltin
+                            ? `Stop preview ${soundtrack}`
+                            : `Preview ${soundtrack}`
+                        }
+                        style={
+                          isPreviewingBuiltin
+                            ? { color: "#FFFFFF", fontWeight: 700, fontSize: "10.5px" }
+                            : undefined
+                        }
+                        className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-3 text-[10.5px] font-bold transition-[background-color,border-color,color,transform] duration-150 motion-safe:enabled:active:scale-[0.96] ${
+                          isPreviewingBuiltin
+                            ? "border-0 bg-[#351080] !text-white hover:bg-[#43189E]"
+                            : "border border-[#DFD9EC] bg-[#F6F2FF] text-[#351080] hover:border-[#C7BBE3] hover:bg-[#ECE4FF]"
+                        }`}
+                      >
+                        {isPreviewingBuiltin ? (
+                          <>
+                            <Square size={10} fill="currentColor" aria-hidden="true" />
+                            <span>Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play size={10} fill="currentColor" aria-hidden="true" />
+                            <span>Preview</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between px-0.5 text-[9.5px] text-[#7B728E]">
+                      <span>
+                        {getSoundtrackSubtitle(soundtrack)}
+                        {isPreviewingBuiltin ? " · Memutar preview" : ""}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="inline-flex h-[14px] items-center gap-[2.5px]"
+                      >
+                        {previewBars.map((h, idx) => (
+                          <span
+                            key={idx}
+                            style={{ height: `${isPreviewingBuiltin ? h : 4}px` }}
+                            className={`w-[2.5px] rounded-full transition-[height,background-color] duration-150 ${
+                              isPreviewingBuiltin ? "bg-[#351080]" : "bg-[#D8CEEC]"
+                            }`}
+                          />
+                        ))}
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-[12px] border border-[#EAE4F3] bg-[#FDFCFE] p-2.5">
                     <SpotifyPicker
+                      enablePreview
+                      previewPaused={!musicEnabled}
                       selected={spotifyItem}
                       onSelect={(item) => {
                         setSpotifyItem(item);

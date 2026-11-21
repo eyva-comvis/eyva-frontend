@@ -7,10 +7,13 @@ import {
   ExternalLink,
   Loader2,
   Music,
+  Play,
   Search,
   Sparkles,
+  Square,
   X,
 } from "lucide-react";
+import SpotifyEmbedPlayer from "@/components/music/SpotifyEmbedPlayer";
 import {
   CURATED_SPOTIFY_PRESETS,
   buildSpotifySearchUrl,
@@ -27,6 +30,8 @@ interface SpotifyPickerProps {
   selected: SpotifyItem | null;
   onSelect: (item: SpotifyItem) => void;
   compact?: boolean;
+  enablePreview?: boolean;
+  previewPaused?: boolean;
 }
 
 function CoverThumb({
@@ -77,6 +82,8 @@ export default function SpotifyPicker({
   selected,
   onSelect,
   compact = false,
+  enablePreview = false,
+  previewPaused = false,
 }: SpotifyPickerProps) {
   const [inputValue, setInputValue] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -84,6 +91,7 @@ export default function SpotifyPicker({
   const [clipboardHint, setClipboardHint] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [savedItems, setSavedItems] = useState<SpotifyItem[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     setSavedItems(readSavedSpotifyItems());
@@ -265,39 +273,87 @@ export default function SpotifyPicker({
 
       {/* 2. Selected Spotify Preview Card */}
       {selected && !compact && (
-        <div className="flex items-center gap-2.5 rounded-[12px] border border-[#D8CCF2] bg-[#F6F2FF] p-2.5">
-          <CoverThumb src={selected.thumbnailUrl} alt={selected.title} size={40} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full bg-[#351080] text-[#FFF238]">
-                <Check size={9} strokeWidth={3} aria-hidden="true" />
-              </span>
-              <span className="truncate text-[11px] font-bold text-[#2A1163]">
-                {selected.title}
-              </span>
+        <div className="rounded-[12px] border border-[#D8CCF2] bg-[#F6F2FF] p-2.5">
+          <div className="flex items-center gap-2.5">
+            <CoverThumb src={selected.thumbnailUrl} alt={selected.title} size={40} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full bg-[#351080] text-[#FFF238]">
+                  <Check size={9} strokeWidth={3} aria-hidden="true" />
+                </span>
+                <span className="truncate text-[11px] font-bold text-[#2A1163]">
+                  {selected.title}
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5 text-[9.5px] text-[#6B5E86]">
+                <span className="inline-flex items-center gap-1 font-semibold text-[#18863E]">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-[6px] w-[6px] rounded-full bg-[#1DB954]"
+                  />
+                  Spotify
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>{spotifyTypeLabel(selected.type)}</span>
+              </div>
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[9.5px] text-[#6B5E86]">
-              <span className="inline-flex items-center gap-1 font-semibold text-[#18863E]">
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-[6px] w-[6px] rounded-full bg-[#1DB954]"
-                />
-                Spotify
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>{spotifyTypeLabel(selected.type)}</span>
-            </div>
+
+            {enablePreview && (
+              <button
+                type="button"
+                onClick={() => setPreviewOpen((prev) => !prev)}
+                aria-expanded={previewOpen}
+                aria-label={
+                  previewOpen
+                    ? `Tutup preview ${selected.title}`
+                    : `Dengar preview ${selected.title}`
+                }
+                style={
+                  previewOpen
+                    ? { color: "#FFFFFF", fontWeight: 700, fontSize: "10px" }
+                    : undefined
+                }
+                className={`inline-flex h-[26px] shrink-0 items-center gap-1 rounded-[7px] px-2.5 text-[10px] font-bold transition-[background-color,border-color,color,transform] duration-150 motion-safe:enabled:active:scale-[0.96] ${
+                  previewOpen
+                    ? "border-0 bg-[#351080] !text-white hover:bg-[#43189E]"
+                    : "border border-[#D5C7F2] bg-white text-[#351080] hover:bg-[#EFE9FF]"
+                }`}
+              >
+                {previewOpen ? (
+                  <>
+                    <Square size={9} fill="currentColor" aria-hidden="true" />
+                    <span>Tutup</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={10} fill="currentColor" aria-hidden="true" />
+                    <span>Preview</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            <a
+              href={selected.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Buka ${selected.title} di Spotify`}
+              title="Buka di Spotify"
+              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] border border-[#DFD6F5] bg-white text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#EFE9FF] motion-safe:active:scale-[0.96]"
+            >
+              <ExternalLink size={12} strokeWidth={2.2} aria-hidden="true" />
+            </a>
           </div>
-          <a
-            href={selected.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Buka ${selected.title} di Spotify`}
-            title="Buka di Spotify"
-            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] border border-[#DFD6F5] bg-white text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#EFE9FF] motion-safe:active:scale-[0.96]"
-          >
-            <ExternalLink size={12} strokeWidth={2.2} aria-hidden="true" />
-          </a>
+
+          {enablePreview && previewOpen && (
+            <div className="mt-2.5 border-t border-[#E3D9F7] pt-2.5">
+              <SpotifyEmbedPlayer
+                item={selected}
+                paused={previewPaused}
+                compactOnly
+              />
+            </div>
+          )}
         </div>
       )}
 
