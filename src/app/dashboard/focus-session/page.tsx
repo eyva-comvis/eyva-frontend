@@ -25,6 +25,7 @@ import { useFocusMonitor } from "@/hooks/useFocusMonitor";
 import {
   playAlert,
   playStatusSound,
+  stopVoice,
   unlockAudio,
   type CameraSoundCue,
 } from "@/lib/audio";
@@ -54,10 +55,10 @@ import { sessionsApi, type DrowsinessStatus } from "@/services/api/sessions";
 
 const FACE_LOST_DEBOUNCE_MS = 1600;
 const SFX_COOLDOWN_MS: Record<CameraSoundCue, number> = {
-  face_detected: 4000,
-  face_not_detected: 5000,
-  possible_drowsiness: 6000,
-  drowsy: 6000,
+  face_detected: 8000,
+  face_not_detected: 8000,
+  possible_drowsiness: 10000,
+  drowsy: 10000,
 };
 
 const WAVEFORM_HEIGHTS = [
@@ -81,6 +82,7 @@ export default function FocusSessionPage() {
   const [showSpotifyPicker, setShowSpotifyPicker] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const spotifyPlayerRef = useRef<SpotifyEmbedHandle | null>(null);
   const [barHeights, setBarHeights] = useState<number[]>(() =>
     WAVEFORM_HEIGHTS.map(() => 6)
@@ -115,6 +117,8 @@ export default function FocusSessionPage() {
 
   const isMutedRef = useRef(isMuted);
   isMutedRef.current = isMuted;
+  const voiceEnabledRef = useRef(voiceEnabled);
+  voiceEnabledRef.current = voiceEnabled;
   const soundtrackRef = useRef(soundtrack);
   soundtrackRef.current = soundtrack;
   const shouldPlayMusic =
@@ -163,6 +167,7 @@ export default function FocusSessionPage() {
         clearTimeout(faceLostTimerRef.current);
         faceLostTimerRef.current = null;
       }
+      stopVoice();
       stopMusic(true);
       spotifyPlayerRef.current?.pause();
     };
@@ -237,14 +242,14 @@ export default function FocusSessionPage() {
 
     if (playedAlertIdRef.current !== monitor.alert.id) {
       playedAlertIdRef.current = monitor.alert.id;
-      if (!isMutedRef.current) {
+      if (!isMutedRef.current && voiceEnabledRef.current) {
         const now = Date.now();
         if (monitor.alert.level === 2) {
           lastPlayedAtRef.current.alert2 = now;
           void playAlert(2);
         } else {
           const lastAlert1 = lastPlayedAtRef.current.alert1 ?? 0;
-          if (now - lastAlert1 >= 2500) {
+          if (now - lastAlert1 >= 4500) {
             lastPlayedAtRef.current.alert1 = now;
             void playAlert(1);
           }
@@ -253,7 +258,7 @@ export default function FocusSessionPage() {
     }
   }, [monitor.alert]);
 
-  // SFX saat status kamera berubah (hanya pada transisi, dengan debounce & cooldown)
+  // Vokal suara manusia saat status kamera berubah (hanya pada transisi, dengan debounce & cooldown)
   useEffect(() => {
     const clearFaceLostTimer = () => {
       if (faceLostTimerRef.current) {
@@ -265,6 +270,7 @@ export default function FocusSessionPage() {
     if (!cameraConnected) {
       clearFaceLostTimer();
       confirmedCueRef.current = null;
+      stopVoice();
       return;
     }
 
@@ -291,7 +297,7 @@ export default function FocusSessionPage() {
     const commitTransition = (cue: CameraSoundCue) => {
       if (confirmedCueRef.current === cue) return;
       confirmedCueRef.current = cue;
-      if (isMutedRef.current) return;
+      if (isMutedRef.current || !voiceEnabledRef.current) return;
       const now = Date.now();
       const last = lastPlayedAtRef.current[cue] ?? 0;
       if (now - last < SFX_COOLDOWN_MS[cue]) return;
@@ -367,6 +373,9 @@ export default function FocusSessionPage() {
         }
         if (typeof parsed.musicEnabled === "boolean") {
           setIsMusicPlaying(parsed.musicEnabled);
+        }
+        if (typeof parsed.voiceEnabled === "boolean") {
+          setVoiceEnabled(parsed.voiceEnabled);
         }
       } catch {
         // Use defaults
@@ -491,6 +500,7 @@ export default function FocusSessionPage() {
     musicEnabled?: boolean;
     musicSource?: MusicSource;
     spotifyItem?: SpotifyItem;
+    voiceEnabled?: boolean;
   }) => {
     try {
       const raw = localStorage.getItem("eyva_session_config");
@@ -542,7 +552,25 @@ export default function FocusSessionPage() {
     if (musicSource === "builtin") {
       void unlockMusic();
     }
-    setIsMuted((prev) => !prev);
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (next) {
+        stopVoice();
+      }
+      return next;
+    });
+  };
+
+  const handleToggleVoice = () => {
+    void unlockAudio();
+    setVoiceEnabled((prev) => {
+      const next = !prev;
+      if (!next) {
+        stopVoice();
+      }
+      persistMusicConfig({ voiceEnabled: next });
+      return next;
+    });
   };
 
   const handleTrackChange = (next: SoundtrackName) => {
@@ -554,6 +582,7 @@ export default function FocusSessionPage() {
   };
 
   const goToSummary = () => {
+    stopVoice();
     stopMusic(true);
     spotifyPlayerRef.current?.pause();
     localStorage.removeItem("eyva_focus_remaining_seconds");
@@ -564,6 +593,7 @@ export default function FocusSessionPage() {
   const handleEndSession = async () => {
     if (isEnding || isTransitioningBreak) return;
     setIsEnding(true);
+    stopVoice();
     stopMusic(true);
     spotifyPlayerRef.current?.pause();
     if (monitor.alert) await monitor.endFromAlert();
@@ -574,6 +604,7 @@ export default function FocusSessionPage() {
   const handleTakeBreakFromAlert2 = async () => {
     if (isTransitioningBreak || isEnding) return;
     setIsTransitioningBreak(true);
+    stopVoice();
     stopMusic(true);
     spotifyPlayerRef.current?.pause();
     try {
@@ -595,6 +626,7 @@ export default function FocusSessionPage() {
   useEffect(() => {
     if (!isHydrated || !monitor.ready || secondsLeft > 0 || isEnding) return;
     setIsEnding(true);
+    stopVoice();
     stopMusic(true);
     spotifyPlayerRef.current?.pause();
     monitor.completeSession().then(goToSummary);
@@ -608,6 +640,7 @@ export default function FocusSessionPage() {
     }
     const next = !isPaused;
     if (next) {
+      stopVoice();
       spotifyPlayerRef.current?.pause();
     }
     setIsPaused(next);
@@ -968,17 +1001,47 @@ export default function FocusSessionPage() {
                   </div>
                 </div>
 
-                {/* Live drowsiness status from the model */}
-                <span
-                  role="status"
-                  className={`rounded-[8px] px-2.5 py-1.5 text-[9px] font-bold ${
-                    monitor.status === "DROWSY_NEED_REST" || monitor.status === "POSSIBLE_DROWSINESS"
-                      ? "bg-[#FDF0F5] text-[#A34870]"
-                      : "bg-[#F2ECFF] text-[#2A1163]"
-                  }`}
-                >
-                  {statusLabel(monitor.status, monitor.faceDetected)}
-                </span>
+                {/* Live drowsiness status + Voice cue toggle */}
+                <div className="flex items-center gap-1.5">
+                  <span
+                    role="status"
+                    className={`rounded-[8px] px-2.5 py-1.5 text-[9px] font-bold ${
+                      monitor.status === "DROWSY_NEED_REST" || monitor.status === "POSSIBLE_DROWSINESS"
+                        ? "bg-[#FDF0F5] text-[#A34870]"
+                        : "bg-[#F2ECFF] text-[#2A1163]"
+                    }`}
+                  >
+                    {statusLabel(monitor.status, monitor.faceDetected)}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleVoice}
+                    aria-pressed={voiceEnabled && !isMuted}
+                    aria-label={
+                      voiceEnabled && !isMuted
+                        ? "Mute voice status cues"
+                        : "Enable voice status cues"
+                    }
+                    title={
+                      voiceEnabled && !isMuted
+                        ? "Voice cues on (click to mute voice)"
+                        : "Voice cues muted (click to enable)"
+                    }
+                    className={`inline-flex h-[27px] items-center gap-1 rounded-[8px] border px-2 text-[9px] font-bold transition-[background-color,border-color,color,transform] duration-150 motion-safe:enabled:active:scale-[0.96] ${
+                      voiceEnabled && !isMuted
+                        ? "border-[#DDD3F2] bg-[#F7F3FF] text-[#351080] hover:bg-[#EDE4FF]"
+                        : "border-[#E5DFEE] bg-white text-[#8E83A5] hover:bg-[#FAF8FF]"
+                    }`}
+                  >
+                    {voiceEnabled && !isMuted ? (
+                      <Volume2 size={12} strokeWidth={2.2} aria-hidden="true" />
+                    ) : (
+                      <VolumeX size={12} strokeWidth={2.2} aria-hidden="true" />
+                    )}
+                    <span>{voiceEnabled && !isMuted ? "Voice on" : "Voice off"}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Lavender Outer Frame + Black Camera Box */}
@@ -1282,6 +1345,8 @@ export default function FocusSessionPage() {
             <button
               type="button"
               onClick={async () => {
+                stopVoice();
+                void unlockAudio();
                 await monitor.acknowledge();
                 setActiveAlert(null);
               }}

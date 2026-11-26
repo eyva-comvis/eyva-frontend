@@ -538,16 +538,29 @@ export function setEnergized(on: boolean): void {
   applyGain(0.6);
 }
 
-/** Kecilkan volume musik sementara saat SFX status atau alert berbunyi. */
-export function duckMusic(ms = 2400): void {
-  duckFactor = 0.22;
-  applyGain(0.04);
+/** Kecilkan volume musik sementara saat vokal status atau alert berbicara. */
+export function duckMusic(ms = 4000): void {
+  duckFactor = 0.2;
+  applyGain(0.06);
   if (duckTimer) clearTimeout(duckTimer);
   duckTimer = setTimeout(() => {
     duckFactor = 1;
     duckTimer = null;
-    applyGain(0.5);
+    applyGain(0.45);
   }, ms);
+}
+
+/** Pulihkan volume musik latar secara halus segera setelah vokal selesai berbicara. */
+export function unduckMusic(): void {
+  if (duckTimer) {
+    clearTimeout(duckTimer);
+    duckTimer = null;
+  }
+  duckTimer = setTimeout(() => {
+    duckFactor = 1;
+    duckTimer = null;
+    applyGain(0.45);
+  }, 120);
 }
 
 export function getMusicState(): MusicState {
@@ -571,5 +584,5 @@ export function getBars(n: number): number[] {
   return out;
 }
 
-// Otomatis hubungkan ducking saat modul musik dimuat
-setAudioDuckHandler(duckMusic);
+// Otomatis hubungkan ducking & unducking saat modul musik dimuat
+setAudioDuckHandler(duckMusic, unduckMusic);
