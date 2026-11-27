@@ -23,19 +23,15 @@ export default function LandingRoute() {
   }, []);
 
   return (
-    <div className="min-h-dvh w-full overflow-x-clip bg-[#FFFEF9] text-[#2A1163]">
-      {/* Sticky Glass Pill Navbar */}
+    <div className="eyva-glass-canvas relative min-h-dvh w-full overflow-x-clip text-[#2A1163]">
+      {/* Fixed Floating Glass Pill Navbar (merges seamlessly over main canvas) */}
       <LandingNavbar isLoggedIn={isLoggedIn} />
 
-      <main id="main-content">
-        {/* Kinetic Split Hero with Subtle Warm Ivory-Lavender-Yellow Mesh */}
+      <main id="main-content" className="relative z-10">
+        {/* Kinetic Split Hero on Unified Glassify Ambient Canvas */}
         <section
           aria-labelledby="hero-heading"
-          style={{
-            background:
-              "radial-gradient(640px circle at 14% 18%, rgba(242, 236, 255, 0.85), transparent 65%), radial-gradient(520px circle at 86% 12%, rgba(255, 242, 56, 0.24), transparent 60%), linear-gradient(180deg, #FFFEF9 0%, #FFFFFF 100%)",
-          }}
-          className="w-full pt-8 pb-14 sm:pt-12 sm:pb-20"
+          className="w-full pt-[104px] pb-14 sm:pt-[122px] sm:pb-20"
         >
           <div className="mx-auto grid max-w-[1120px] grid-cols-1 items-center gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:gap-8">
             {/* Left Editorial Pitch (6 cols) */}
@@ -49,14 +45,14 @@ export default function LandingRoute() {
                   className="m-0 text-[36px] font-extrabold leading-[1.08] tracking-[-0.025em] text-[#2A1163] sm:text-[48px] lg:text-[52px] text-balance"
                 >
                   Study in your own rhythm,{" "}
-                  <span className="inline-block rounded-[10px] bg-[#FFF238] px-2.5 py-0.5 text-[#351080]">
+                  <span className="inline-block rounded-[10px] bg-[#FFF238] px-2.5 py-0.5 text-[#351080] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                     rest on time.
                   </span>
                 </h1>
               </StaggerItem>
 
               <StaggerItem>
-                <p className="m-0 mt-4 max-w-[54ch] text-[16px] leading-[1.6] text-[#53466E] text-pretty">
+                <p className="m-0 mt-4 max-w-[54ch] text-[16px] leading-[1.6] text-[#4C3E69] text-pretty">
                   Eyva pairs a calm Pomodoro study space with real-time webcam
                   drowsiness check-ins, spoken voice reminders, and ambient or
                   Spotify soundtracks so you know when to refocus and when to take
@@ -70,7 +66,7 @@ export default function LandingRoute() {
                     <Link
                       href="/dashboard/home"
                       style={{ color: "#FFFFFF", fontWeight: 700 }}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#351080] px-7 py-3 text-[14px] !font-bold !text-white shadow-[0_4px_0_#220856] transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#351080]/95 px-7 py-3 text-[14px] !font-bold !text-white shadow-[0_8px_22px_rgba(53,16,128,0.28),inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-md transition-[background-color,transform,box-shadow] duration-150 hover:bg-[#43189E] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
                     >
                       Open Dashboard
                     </Link>
@@ -79,7 +75,7 @@ export default function LandingRoute() {
                       <Link
                         href="/register"
                         style={{ color: "#FFFFFF", fontWeight: 700 }}
-                        className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#351080] px-7 py-3 text-[14px] !font-bold !text-white shadow-[0_4px_0_#220856] transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#351080]/95 px-7 py-3 text-[14px] !font-bold !text-white shadow-[0_8px_22px_rgba(53,16,128,0.28),inset_0_1px_0_rgba(255,255,255,0.26)] backdrop-blur-md transition-[background-color,transform,box-shadow] duration-150 hover:bg-[#43189E] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
                       >
                         Start Focusing Free
                       </Link>
@@ -87,7 +83,7 @@ export default function LandingRoute() {
                       <button
                         type="button"
                         onClick={startGoogleLogin}
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-full border border-[#DDD3F2] bg-white px-6 py-3 text-[13.5px] font-bold text-[#351080] transition-[background-color,border-color,transform] duration-150 hover:border-[#C2B2E8] hover:bg-[#FAF8FF] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
+                        className="eyva-glass-inset inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-full px-6 py-3 text-[13.5px] font-bold text-[#351080] transition-[background-color,transform,box-shadow] duration-150 hover:bg-white/85 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
                       >
                         <svg
                           width="15"
@@ -114,7 +110,7 @@ export default function LandingRoute() {
 
               {/* Micro Trust Pill */}
               <StaggerItem>
-                <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#E5DDF5] bg-[#F7F3FF] px-3.5 py-1.5 text-[12px] font-medium text-[#4D3B7C]">
+                <div className="eyva-glass-inset mt-5 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12px] font-medium text-[#44326F]">
                   <Shield
                     size={13}
                     strokeWidth={2.3}

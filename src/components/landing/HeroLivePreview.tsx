@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Activity, Coffee, Music, Volume2 } from "lucide-react";
 import { EYVA_EASE, EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 
@@ -82,9 +82,27 @@ const SIM_STATES: SimStateMeta[] = [
   },
 ];
 
+const SIM_AUTO_INTERVAL_MS = 3800;
+
 export default function HeroLivePreview() {
+  const prefersReduced = useReducedMotion();
   const [activeId, setActiveId] = useState<SimStateId>("focused");
-  const current = SIM_STATES.find((s) => s.id === activeId) ?? SIM_STATES[0];
+  const [isInteracting, setIsInteracting] = useState(false);
+
+  const currentIdx = Math.max(
+    0,
+    SIM_STATES.findIndex((s) => s.id === activeId)
+  );
+  const current = SIM_STATES[currentIdx] ?? SIM_STATES[0];
+
+  useEffect(() => {
+    if (isInteracting || prefersReduced) return;
+    const id = setTimeout(() => {
+      const nextIdx = (currentIdx + 1) % SIM_STATES.length;
+      setActiveId(SIM_STATES[nextIdx].id);
+    }, SIM_AUTO_INTERVAL_MS);
+    return () => clearTimeout(id);
+  }, [activeId, currentIdx, isInteracting, prefersReduced]);
 
   const radius = 58;
   const circumference = 2 * Math.PI * radius;
@@ -102,13 +120,23 @@ export default function HeroLivePreview() {
   };
 
   return (
-    <div className="rounded-[24px] border border-[#DFD5F2] bg-white p-4 sm:p-5 shadow-[0_18px_50px_rgba(45,10,115,0.1)]">
+    <div
+      onMouseEnter={() => setIsInteracting(true)}
+      onMouseLeave={() => setIsInteracting(false)}
+      onFocusCapture={() => setIsInteracting(true)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setIsInteracting(false);
+        }
+      }}
+      className="eyva-glass-card rounded-[26px] p-4 sm:p-5"
+    >
       {/* Interactive State Selector Tabs */}
-      <div className="mb-3.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-[11px] font-bold text-[#4A3875]">
-          Interactive session preview: click a state
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-[#43306E]">
+          Interactive session preview
         </span>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F2ECFF] px-2.5 py-1 text-[10.5px] font-bold text-[#351080]">
+        <span className="eyva-glass-inset inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-bold text-[#351080]">
           <span
             aria-hidden="true"
             className="h-[6px] w-[6px] rounded-full bg-[#351080]"
@@ -120,7 +148,7 @@ export default function HeroLivePreview() {
       <div
         role="tablist"
         aria-label="Simulate Eyva focus states"
-        className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-[#F5F1FC] p-1.5 sm:grid-cols-4"
+        className="eyva-glass-inset grid grid-cols-2 gap-1.5 rounded-[14px] p-1.5 sm:grid-cols-4"
       >
         {SIM_STATES.map((item, idx) => {
           const isSelected = item.id === activeId;
@@ -139,7 +167,7 @@ export default function HeroLivePreview() {
               className={`relative min-h-[38px] rounded-[10px] px-2.5 py-1.5 text-[11px] !font-bold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
                 isSelected
                   ? "!text-white"
-                  : "!text-[#351080] hover:bg-[#EAE2FA]"
+                  : "!text-[#351080] hover:bg-white/75"
               }`}
             >
               {isSelected && (
@@ -147,7 +175,7 @@ export default function HeroLivePreview() {
                   layoutId="eyva-hero-sim-tab"
                   transition={EYVA_SPRING}
                   aria-hidden="true"
-                  className="absolute inset-0 rounded-[10px] bg-[#351080] shadow-xs"
+                  className="absolute inset-0 rounded-[10px] bg-[#351080]/95 shadow-[0_4px_14px_rgba(53,16,128,0.28),inset_0_1px_0_rgba(255,255,255,0.24)]"
                 />
               )}
               <span className="relative z-10">{item.tabLabel}</span>
@@ -162,8 +190,8 @@ export default function HeroLivePreview() {
         <div
           className={`flex flex-col items-center justify-between rounded-[18px] p-4 sm:col-span-5 transition-colors duration-200 ${
             current.id === "break"
-              ? "bg-[#FFF685] text-[#2A1163]"
-              : "bg-[#2D0A73] text-white"
+              ? "border border-white/75 bg-[#FFF454]/88 text-[#2A1163] shadow-[0_12px_28px_rgba(53,16,128,0.12),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-xl"
+              : "eyva-glass-purple text-white"
           }`}
         >
           <div className="flex w-full items-center justify-between text-[10px] font-bold">
@@ -207,7 +235,7 @@ export default function HeroLivePreview() {
               />
             </svg>
 
-            <div className="relative z-10 flex h-[108px] w-[108px] flex-col items-center justify-center rounded-full bg-white text-center text-[#2A1163] shadow-xs">
+            <div className="relative z-10 flex h-[108px] w-[108px] flex-col items-center justify-center rounded-full bg-white/95 text-center text-[#2A1163] shadow-[0_6px_18px_rgba(26,6,68,0.18)] backdrop-blur-md">
               <strong className="text-[21px] font-extrabold leading-none tracking-tight tabular-nums">
                 {current.timerText}
               </strong>
@@ -224,10 +252,10 @@ export default function HeroLivePreview() {
         </div>
 
         {/* Right Live Check-in & Companion Response Card */}
-        <div className="flex flex-col justify-between rounded-[18px] border border-[#EAE4F3] bg-[#FAF8FF] p-4 sm:col-span-7">
+        <div className="eyva-glass-lavender flex flex-col justify-between rounded-[18px] p-4 sm:col-span-7">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#FFF238] text-[#351080]">
+              <span className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#FFF238] text-[#351080] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                 {current.id === "break" ? (
                   <Coffee size={14} strokeWidth={2.3} aria-hidden="true" />
                 ) : (
@@ -247,12 +275,12 @@ export default function HeroLivePreview() {
                 exit={{ opacity: 0, scale: 0.92 }}
                 transition={{ duration: 0.16, ease: EYVA_EASE }}
                 role="status"
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm ${
                   current.badgeTone === "warn"
-                    ? "bg-[#FDF0F5] text-[#9F3D69]"
+                    ? "border border-[#9F3D69]/20 bg-[#FDF0F5]/85 text-[#9F3D69]"
                     : current.badgeTone === "break"
                       ? "bg-[#FFF238] text-[#2A1163]"
-                      : "bg-[#EFE9FF] text-[#351080]"
+                      : "border border-white/80 bg-white/70 text-[#351080]"
                 }`}
               >
                 {current.statusBadge}
@@ -268,10 +296,10 @@ export default function HeroLivePreview() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2, ease: EYVA_EASE }}
-              className="my-3 rounded-[14px] border border-[#E6DFF4] bg-white p-3"
+              className="eyva-glass-inset my-3 rounded-[14px] p-3"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[12px] bg-[#F2ECFF] p-1.5">
+                <div className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[12px] border border-white/80 bg-[#F2ECFF]/80 p-1.5 backdrop-blur-sm">
                   <Image
                     src={current.mascotSrc}
                     alt=""
@@ -285,13 +313,13 @@ export default function HeroLivePreview() {
                   <div className="text-[11px] font-bold text-[#2A1163]">
                     {current.eyeState}
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-[10px] text-[#6E6285] tabular-nums">
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-[#5A4E74] tabular-nums">
                     <span>Mouth Aspect Ratio (MAR)</span>
                     <strong className="font-bold text-[#351080]">
                       {current.marValue.toFixed(2)} / 0.32
                     </strong>
                   </div>
-                  <div className="mt-1 h-[5px] w-full overflow-hidden rounded-full bg-[#ECE6F8]">
+                  <div className="mt-1 h-[5px] w-full overflow-hidden rounded-full bg-[#E5DCF8]/90">
                     <div
                       style={{
                         width: `${Math.min(100, Math.round((current.marValue / 0.6) * 100))}%`,
@@ -305,7 +333,7 @@ export default function HeroLivePreview() {
               </div>
 
               {/* Spoken Voice Cue Bubble */}
-              <div className="mt-2.5 flex items-start gap-2 rounded-[10px] bg-[#F7F4FD] px-2.5 py-2 text-[10.5px] leading-snug text-[#34245B]">
+              <div className="mt-2.5 flex items-start gap-2 rounded-[10px] border border-white/75 bg-white/60 px-2.5 py-2 text-[10.5px] leading-snug text-[#34245B]">
                 <Volume2
                   size={13}
                   strokeWidth={2.2}
@@ -319,7 +347,7 @@ export default function HeroLivePreview() {
 
           {/* Interactive Action Row inside Simulator */}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-medium text-[#7B728E]">
+            <span className="text-[10px] font-medium text-[#5E5278]">
               {current.id === "alert1"
                 ? "Action required to resume timer"
                 : current.id === "break"
@@ -332,7 +360,7 @@ export default function HeroLivePreview() {
                 type="button"
                 onClick={() => setActiveId("focused")}
                 style={{ color: "#FFFFFF", fontWeight: 700 }}
-                className="shrink-0 rounded-[9px] bg-[#351080] px-3 py-1.5 text-[10.5px] !font-bold !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96]"
+                className="shrink-0 rounded-[9px] bg-[#351080]/95 px-3 py-1.5 text-[10.5px] !font-bold !text-white shadow-[0_4px_12px_rgba(53,16,128,0.22)] transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96]"
               >
                 Got it, refocus
               </button>
@@ -343,7 +371,7 @@ export default function HeroLivePreview() {
                 type="button"
                 onClick={() => setActiveId("focused")}
                 style={{ color: "#FFFFFF", fontWeight: 700 }}
-                className="shrink-0 rounded-[9px] bg-[#351080] px-3 py-1.5 text-[10.5px] !font-bold !text-white transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96]"
+                className="shrink-0 rounded-[9px] bg-[#351080]/95 px-3 py-1.5 text-[10.5px] !font-bold !text-white shadow-[0_4px_12px_rgba(53,16,128,0.22)] transition-[background-color,transform] duration-150 hover:bg-[#43189E] active:scale-[0.96]"
               >
                 Resume focus
               </button>
@@ -353,7 +381,7 @@ export default function HeroLivePreview() {
               <button
                 type="button"
                 onClick={() => setActiveId("alert1")}
-                className="shrink-0 rounded-[9px] border border-[#D8CCF2] bg-white px-3 py-1.5 text-[10.5px] font-bold text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#EFE9FF] active:scale-[0.96]"
+                className="eyva-glass-inset shrink-0 rounded-[9px] px-3 py-1.5 text-[10.5px] font-bold text-[#351080] transition-[background-color,transform] duration-150 hover:bg-white/85 active:scale-[0.96]"
               >
                 Preview Alert 1
               </button>
@@ -363,7 +391,7 @@ export default function HeroLivePreview() {
               <button
                 type="button"
                 onClick={() => setActiveId("possible")}
-                className="shrink-0 rounded-[9px] border border-[#D8CCF2] bg-white px-3 py-1.5 text-[10.5px] font-bold text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#EFE9FF] active:scale-[0.96]"
+                className="eyva-glass-inset shrink-0 rounded-[9px] px-3 py-1.5 text-[10.5px] font-bold text-[#351080] transition-[background-color,transform] duration-150 hover:bg-white/85 active:scale-[0.96]"
               >
                 Test drowsy cue
               </button>

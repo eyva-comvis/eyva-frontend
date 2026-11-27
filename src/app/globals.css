@@ -970,3 +970,132 @@
     flex-direction: column;
   }
 }
+
+/* ========================================
+   17. EYVA GLASSIFY SURFACE SYSTEM
+======================================== */
+
+.eyva-glass-canvas {
+  background-color: #fbf9ff;
+  background-image:
+    radial-gradient(760px circle at 10% 4%, rgba(226, 213, 255, 0.72), transparent 62%),
+    radial-gradient(640px circle at 88% 6%, rgba(255, 242, 56, 0.24), transparent 58%),
+    radial-gradient(720px circle at 82% 44%, rgba(233, 222, 255, 0.62), transparent 60%),
+    radial-gradient(680px circle at 16% 68%, rgba(255, 242, 56, 0.16), transparent 62%),
+    radial-gradient(760px circle at 54% 96%, rgba(235, 226, 255, 0.68), transparent 64%),
+    linear-gradient(180deg, #fcfaff 0%, #fffef9 42%, #f8f4ff 78%, #fffef9 100%);
+}
+
+.eyva-glass-nav {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.54) 0%,
+    rgba(255, 255, 255, 0.36) 100%
+  );
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  backdrop-filter: blur(20px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 8px 28px rgba(53, 16, 128, 0.08),
+    0 1px 0 rgba(53, 16, 128, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.eyva-glass-nav-scrolled {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(252, 249, 255, 0.72) 100%
+  );
+  -webkit-backdrop-filter: blur(24px) saturate(185%);
+  backdrop-filter: blur(24px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 14px 38px rgba(45, 10, 115, 0.13),
+    0 0 0 1px rgba(53, 16, 128, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.eyva-glass-sheet {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(250, 247, 255, 0.84) 100%
+  );
+  -webkit-backdrop-filter: blur(28px) saturate(185%);
+  backdrop-filter: blur(28px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 20px 48px rgba(45, 10, 115, 0.16),
+    0 0 0 1px rgba(53, 16, 128, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+.eyva-glass-card {
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.74) 0%,
+    rgba(255, 255, 255, 0.52) 100%
+  );
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  backdrop-filter: blur(18px) saturate(155%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 14px 38px rgba(45, 10, 115, 0.08),
+    0 0 0 1px rgba(53, 16, 128, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.eyva-glass-lavender {
+  background: linear-gradient(
+    155deg,
+    rgba(246, 240, 255, 0.74) 0%,
+    rgba(238, 229, 255, 0.52) 100%
+  );
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 12px 34px rgba(45, 10, 115, 0.07),
+    0 0 0 1px rgba(53, 16, 128, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.eyva-glass-warm {
+  background: linear-gradient(
+    155deg,
+    rgba(255, 254, 244, 0.78) 0%,
+    rgba(255, 251, 226, 0.56) 100%
+  );
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  backdrop-filter: blur(18px) saturate(155%);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 12px 34px rgba(45, 10, 115, 0.07),
+    0 0 0 1px rgba(182, 162, 62, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.eyva-glass-purple {
+  background: linear-gradient(
+    145deg,
+    rgba(53, 16, 128, 0.91) 0%,
+    rgba(39, 9, 102, 0.86) 100%
+  );
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  backdrop-filter: blur(20px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 18px 44px rgba(45, 10, 115, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+.eyva-glass-inset {
+  background: rgba(255, 255, 255, 0.58);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 0 0 1px rgba(53, 16, 128, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}

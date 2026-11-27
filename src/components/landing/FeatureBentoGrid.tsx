@@ -203,15 +203,15 @@ export default function FeatureBentoGrid() {
         <StaggerItem className="md:col-span-7">
           <InteractiveCard
             spotlightColor="rgba(255, 242, 56, 0.14)"
-            className="h-full rounded-[22px] border border-[#3E1B8C] bg-[#2D0A73] p-6 text-white shadow-[0_12px_34px_rgba(45,10,115,0.14)]"
+            className="eyva-glass-purple h-full rounded-[24px] p-6 text-white"
           >
             <div className="flex flex-col justify-between gap-5 h-full">
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-[#FFF238] text-[#2D0A73]">
+                  <span className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-[#FFF238] text-[#2D0A73] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                     <Activity size={19} strokeWidth={2.3} aria-hidden="true" />
                   </span>
-                  <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-[#FFF238]">
+                  <span className="rounded-full border border-white/18 bg-white/12 px-3 py-1 text-[11px] font-semibold text-[#FFF238] backdrop-blur-md">
                     YOLO11n + MediaPipe Face Landmarker
                   </span>
                 </div>
@@ -219,7 +219,7 @@ export default function FeatureBentoGrid() {
                 <h3 className="m-0 mt-4 text-[20px] font-bold leading-[1.25] text-white">
                   Drowsiness detection that knows talking from yawning
                 </h3>
-                <p className="m-0 mt-2 text-[13.5px] leading-[1.55] text-white/82 text-pretty">
+                <p className="m-0 mt-2 text-[13.5px] leading-[1.55] text-white/85 text-pretty">
                   Eyva pairs object detection on eyes and head posture with Mouth
                   Aspect Ratio (MAR) landmarks, filtering out slight mouth movement
                   when you read aloud or chat.
@@ -227,7 +227,7 @@ export default function FeatureBentoGrid() {
               </div>
 
               {/* Interactive Fusion Comparison Switcher */}
-              <div className="rounded-[16px] border border-white/15 bg-white/8 p-4">
+              <div className="rounded-[16px] border border-white/18 bg-white/10 p-4 backdrop-blur-md">
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label="Test mouth fusion cases">
                   {DETECTION_CASES.map((item) => {
                     const active = item.id === detCaseId;
@@ -244,7 +244,7 @@ export default function FeatureBentoGrid() {
                         className={`min-h-[34px] rounded-[9px] px-3 py-1.5 text-[11px] !font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                           active
                             ? "bg-[#FFF238] !text-[#2D0A73]"
-                            : "bg-white/10 !text-white hover:bg-white/18"
+                            : "bg-white/12 !text-white hover:bg-white/20"
                         }`}
                       >
                         {item.label}
@@ -254,16 +254,16 @@ export default function FeatureBentoGrid() {
                 </div>
 
                 <div className="mt-3.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-[12px]">
-                  <div className="rounded-[10px] bg-white/10 px-3 py-2.5">
-                    <div className="text-[10px] font-semibold text-white/70">
+                  <div className="rounded-[10px] border border-white/12 bg-white/10 px-3 py-2.5">
+                    <div className="text-[10px] font-semibold text-white/75">
                       YOLO11n Signal
                     </div>
                     <div className="mt-0.5 font-bold text-white tabular-nums">
                       {activeCase.yolo}
                     </div>
                   </div>
-                  <div className="rounded-[10px] bg-white/10 px-3 py-2.5">
-                    <div className="text-[10px] font-semibold text-white/70">
+                  <div className="rounded-[10px] border border-white/12 bg-white/10 px-3 py-2.5">
+                    <div className="text-[10px] font-semibold text-white/75">
                       MediaPipe MAR (Threshold 0.32)
                     </div>
                     <div className="mt-0.5 font-bold text-[#FFF238] tabular-nums">
@@ -272,7 +272,7 @@ export default function FeatureBentoGrid() {
                   </div>
                 </div>
 
-                <div className="mt-2.5 flex items-center justify-between rounded-[10px] bg-white px-3.5 py-2 text-[11.5px] font-bold text-[#2A1163]">
+                <div className="mt-2.5 flex items-center justify-between rounded-[10px] border border-white/70 bg-white/92 px-3.5 py-2 text-[11.5px] font-bold text-[#2A1163] backdrop-blur-md">
                   <span>Hybrid outcome:</span>
                   <span
                     className={
@@ -291,11 +291,11 @@ export default function FeatureBentoGrid() {
 
         {/* CARD 2 (5 cols): Two-Stage Gentle Alerts & Break Flow */}
         <StaggerItem className="md:col-span-5">
-          <InteractiveCard className="h-full rounded-[22px] border border-[#E5DDF5] bg-[#FFFEF9] p-6 shadow-[0_8px_28px_rgba(45,10,115,0.06)]">
+          <InteractiveCard className="eyva-glass-card h-full rounded-[24px] p-6">
             <div className="flex h-full flex-col justify-between gap-4">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-[#FFF238] text-[#351080]">
+                  <span className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-[#FFF238] text-[#351080] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                     <Bell size={18} strokeWidth={2.3} aria-hidden="true" />
                   </span>
                   <Image
@@ -310,7 +310,7 @@ export default function FeatureBentoGrid() {
                 <h3 className="m-0 mt-3.5 text-[19px] font-bold leading-[1.25] text-[#2A1163]">
                   Two-stage check-ins into restorative breaks
                 </h3>
-                <p className="m-0 mt-1.5 text-[13px] leading-[1.55] text-[#5E5278]">
+                <p className="m-0 mt-1.5 text-[13px] leading-[1.55] text-[#4E416B]">
                   Instead of harsh alarms, Eyva checks in twice and protects your
                   remaining study timer while you rest.
                 </p>
@@ -332,8 +332,8 @@ export default function FeatureBentoGrid() {
                         }}
                         className={`min-h-[32px] rounded-[9px] px-2.5 py-1 text-[10.5px] !font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                           active
-                            ? "bg-[#351080] !text-white"
-                            : "border border-[#DFD6F2] bg-[#F5F1FF] !text-[#351080] hover:bg-[#EAE1FF]"
+                            ? "bg-[#351080]/95 !text-white shadow-[0_4px_12px_rgba(53,16,128,0.24)]"
+                            : "eyva-glass-inset !text-[#351080] hover:bg-white/85"
                         }`}
                       >
                         {stage.label}
@@ -349,13 +349,13 @@ export default function FeatureBentoGrid() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -5 }}
                     transition={{ duration: 0.16, ease: EYVA_EASE }}
-                    className="mt-3 rounded-[14px] border border-[#E7DFF7] bg-[#F6F2FF] p-3.5"
+                    className="eyva-glass-inset mt-3 rounded-[14px] p-3.5"
                   >
                     <div className="flex items-center gap-2 text-[12.5px] font-bold text-[#2A1163]">
                       <Coffee size={14} className="text-[#351080]" aria-hidden="true" />
                       <span>{activeAlertStage.title}</span>
                     </div>
-                    <p className="m-0 mt-1 text-[11.5px] leading-[1.5] text-[#5E5278]">
+                    <p className="m-0 mt-1 text-[11.5px] leading-[1.5] text-[#4E416B]">
                       {activeAlertStage.desc}
                     </p>
                   </motion.div>
@@ -367,11 +367,11 @@ export default function FeatureBentoGrid() {
 
         {/* CARD 3 (4 cols): Eyva Calm Synth + Spotify Integration */}
         <StaggerItem className="md:col-span-4">
-          <InteractiveCard className="h-full rounded-[22px] border border-[#E5DDF5] bg-[#F6F2FF] p-6 shadow-[0_8px_24px_rgba(45,10,115,0.05)]">
+          <InteractiveCard className="eyva-glass-lavender h-full rounded-[24px] p-6">
             <div className="flex h-full flex-col justify-between gap-4">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-[#351080] text-white">
+                  <span className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-[#351080] text-white shadow-[0_4px_12px_rgba(53,16,128,0.22)]">
                     <Music size={17} strokeWidth={2.2} aria-hidden="true" />
                   </span>
                   <button
@@ -384,8 +384,8 @@ export default function FeatureBentoGrid() {
                     }}
                     className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-full px-3.5 py-1 text-[11px] !font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.96] ${
                       isPlayingDemo
-                        ? "bg-[#351080] !text-white"
-                        : "border border-[#D5C8F2] bg-white !text-[#351080] hover:bg-[#EFE9FF]"
+                        ? "bg-[#351080] !text-white shadow-[0_4px_12px_rgba(53,16,128,0.22)]"
+                        : "eyva-glass-inset !text-[#351080] hover:bg-white/85"
                     }`}
                   >
                     {isPlayingDemo ? (
@@ -405,13 +405,13 @@ export default function FeatureBentoGrid() {
                 <h3 className="m-0 mt-3.5 text-[18px] font-bold leading-[1.25] text-[#2A1163]">
                   Eyva Calm &amp; Spotify soundtracks
                 </h3>
-                <p className="m-0 mt-1.5 text-[12.5px] leading-[1.55] text-[#5E5278]">
+                <p className="m-0 mt-1.5 text-[12.5px] leading-[1.55] text-[#4E416B]">
                   Play zero-distraction WebAudio ambient tracks or paste any public
                   Spotify playlist, album, or track right inside your session.
                 </p>
               </div>
 
-              <div className="rounded-[14px] border border-[#E0D6F5] bg-white p-3">
+              <div className="eyva-glass-inset rounded-[14px] p-3">
                 <div className="flex flex-wrap gap-1">
                   {SOUNDTRACKS.map((t) => {
                     const selected = t.name === demoTrack;
@@ -424,7 +424,7 @@ export default function FeatureBentoGrid() {
                         className={`rounded-[7px] px-2 py-1 text-[10px] font-bold transition-colors duration-150 ${
                           selected
                             ? "bg-[#FFF238] text-[#2A1163]"
-                            : "bg-[#F5F1FC] text-[#5E5278] hover:text-[#351080]"
+                            : "bg-white/65 text-[#4E416B] hover:bg-white hover:text-[#351080]"
                         }`}
                       >
                         {t.name}
@@ -454,23 +454,23 @@ export default function FeatureBentoGrid() {
 
         {/* CARD 4 (4 cols): Human Voice Companion & Session Coach */}
         <StaggerItem className="md:col-span-4">
-          <InteractiveCard className="h-full rounded-[22px] border border-[#EAE4F3] bg-white p-6 shadow-[0_8px_24px_rgba(45,10,115,0.05)]">
+          <InteractiveCard className="eyva-glass-card h-full rounded-[24px] p-6">
             <div className="flex h-full flex-col justify-between gap-4">
               <div>
-                <span className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-[#FFF238] text-[#351080]">
+                <span className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-[#FFF238] text-[#351080] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                   <Volume2 size={18} strokeWidth={2.2} aria-hidden="true" />
                 </span>
 
                 <h3 className="m-0 mt-3.5 text-[18px] font-bold leading-[1.25] text-[#2A1163]">
                   Warm voice cues &amp; study notes
                 </h3>
-                <p className="m-0 mt-1.5 text-[12.5px] leading-[1.55] text-[#5E5278]">
+                <p className="m-0 mt-1.5 text-[12.5px] leading-[1.55] text-[#4E416B]">
                   Spoken voice cues automatically duck background music when your
                   focus shifts, followed by tailored recap tips after each session.
                 </p>
               </div>
 
-              <div className="rounded-[14px] border border-[#EAE4F3] bg-[#FAF8FF] p-3">
+              <div className="eyva-glass-inset rounded-[14px] p-3">
                 <div className="flex flex-wrap gap-1.5">
                   {VOICE_SAMPLES.map((sample) => {
                     const active = sample.id === activeVoiceId;
@@ -486,7 +486,7 @@ export default function FeatureBentoGrid() {
                         className={`min-h-[30px] rounded-[8px] px-2.5 py-1 text-[10px] !font-bold transition-[background-color,transform] duration-150 active:scale-[0.96] ${
                           active
                             ? "bg-[#351080] !text-white"
-                            : "border border-[#DFD6F2] bg-white !text-[#351080] hover:bg-[#EFE9FF]"
+                            : "border border-white/85 bg-white/75 !text-[#351080] hover:bg-white"
                         }`}
                       >
                         Speak: {sample.label}
@@ -504,32 +504,32 @@ export default function FeatureBentoGrid() {
 
         {/* CARD 5 (4 cols): Privacy-First In-Memory Architecture */}
         <StaggerItem className="md:col-span-4">
-          <InteractiveCard className="h-full rounded-[22px] border border-[#EAE0A8] bg-[#FFFEF4] p-6 shadow-[0_8px_24px_rgba(45,10,115,0.05)]">
+          <InteractiveCard className="eyva-glass-warm h-full rounded-[24px] p-6">
             <div className="flex h-full flex-col justify-between gap-4">
               <div>
-                <span className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-[#351080] text-[#FFF238]">
+                <span className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-[#351080] text-[#FFF238] shadow-[0_4px_12px_rgba(53,16,128,0.22)]">
                   <ShieldCheck size={18} strokeWidth={2.2} aria-hidden="true" />
                 </span>
 
                 <h3 className="m-0 mt-3.5 text-[18px] font-bold leading-[1.25] text-[#2A1163]">
                   Private by design, zero video stored
                 </h3>
-                <p className="m-0 mt-1.5 text-[12.5px] leading-[1.55] text-[#5E5278]">
+                <p className="m-0 mt-1.5 text-[12.5px] leading-[1.55] text-[#4E416B]">
                   Webcam frames are evaluated transiently in memory and discarded right
                   away. Only session totals (minutes, blink/yawn counts, mood) are saved.
                 </p>
               </div>
 
-              <ol className="m-0 flex list-none flex-col gap-1.5 rounded-[14px] border border-[#EAE0A8] bg-white p-3 text-[11px] font-semibold text-[#2A1163]">
+              <ol className="eyva-glass-inset m-0 flex list-none flex-col gap-1.5 rounded-[14px] p-3 text-[11px] font-semibold text-[#2A1163]">
                 <li className="flex items-center justify-between">
                   <span>1. Webcam frame</span>
-                  <span className="text-[#6E6285]">320px JPEG in RAM</span>
+                  <span className="text-[#5B4F75]">320px JPEG in RAM</span>
                 </li>
-                <li className="flex items-center justify-between border-t border-[#F3EFE0] pt-1.5">
+                <li className="flex items-center justify-between border-t border-[#351080]/8 pt-1.5">
                   <span>2. Score &amp; MAR check</span>
                   <span className="text-[#351080]">Transient only</span>
                 </li>
-                <li className="flex items-center justify-between border-t border-[#F3EFE0] pt-1.5">
+                <li className="flex items-center justify-between border-t border-[#351080]/8 pt-1.5">
                   <span>3. Disk / bucket storage</span>
                   <span className="rounded-full bg-[#FFF238] px-2 py-0.5 text-[10px] font-extrabold text-[#2A1163]">
                     0 photos saved

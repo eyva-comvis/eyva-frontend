@@ -1,9 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Pause, Play } from "lucide-react";
 import { EYVA_EASE, EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 
 interface FlowStep {
@@ -75,18 +74,63 @@ const STEPS: FlowStep[] = [
   },
 ];
 
+const STEP_AUTO_INTERVAL_MS = 4200;
+
 export default function HowItWorksSection() {
   const prefersReduced = useReducedMotion();
   const [activeIdx, setActiveIdx] = useState(0);
-  const [autoCycle, setAutoCycle] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const elapsedMsRef = useRef(0);
+  const activeBarRef = useRef<HTMLDivElement | null>(null);
+
+  const handleSelectStep = (idx: number) => {
+    elapsedMsRef.current = 0;
+    if (activeBarRef.current) {
+      activeBarRef.current.style.transform = prefersReduced
+        ? "scaleX(1)"
+        : "scaleX(0)";
+    }
+    setActiveIdx(idx);
+  };
 
   useEffect(() => {
-    if (!autoCycle || prefersReduced) return;
-    const id = setInterval(() => {
-      setActiveIdx((prev) => (prev + 1) % STEPS.length);
-    }, 4200);
-    return () => clearInterval(id);
-  }, [autoCycle, prefersReduced]);
+    const syncBar = () => {
+      if (!activeBarRef.current) return;
+      if (prefersReduced) {
+        activeBarRef.current.style.transform = "scaleX(1)";
+        return;
+      }
+      const ratio = Math.min(1, elapsedMsRef.current / STEP_AUTO_INTERVAL_MS);
+      activeBarRef.current.style.transform = `scaleX(${ratio})`;
+    };
+
+    syncBar();
+    if (isInteracting || prefersReduced) return;
+
+    let rafId = 0;
+    let lastTs = performance.now();
+
+    const tick = (now: number) => {
+      const dt = Math.min(Math.max(0, now - lastTs), 100);
+      lastTs = now;
+      elapsedMsRef.current += dt;
+
+      if (elapsedMsRef.current >= STEP_AUTO_INTERVAL_MS) {
+        elapsedMsRef.current = 0;
+        if (activeBarRef.current) {
+          activeBarRef.current.style.transform = "scaleX(1)";
+        }
+        setActiveIdx((prev) => (prev + 1) % STEPS.length);
+        return;
+      }
+
+      syncBar();
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [activeIdx, isInteracting, prefersReduced]);
 
   const active = STEPS[activeIdx];
 
@@ -94,61 +138,60 @@ export default function HowItWorksSection() {
     <section
       id="how-it-works"
       aria-labelledby="how-heading"
-      className="border-y border-[#ECE6F7] bg-[#FAF7FF] py-16 sm:py-22"
+      className="border-y border-white/75 bg-white/28 py-16 backdrop-blur-sm sm:py-22"
     >
-      <div className="mx-auto max-w-[1120px] px-4 sm:px-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div className="max-w-[600px]">
-            <h2
-              id="how-heading"
-              className="m-0 text-[28px] font-extrabold leading-[1.16] tracking-[-0.02em] text-[#2A1163] sm:text-[36px] text-balance"
-            >
-              How a study session flows with Eyva
-            </h2>
-            <p className="m-0 mt-2.5 text-[15px] leading-[1.6] text-[#5E5278] text-pretty">
-              Four clear stages from setting your goal to wrapping up with a calm
-              reflection. Click any step to inspect what happens.
-            </p>
-          </div>
-
-          {!prefersReduced && (
-            <button
-              type="button"
-              onClick={() => setAutoCycle((prev) => !prev)}
-              aria-pressed={autoCycle}
-              className="inline-flex min-h-[38px] w-fit items-center gap-1.5 rounded-full border border-[#D8CCF2] bg-white px-4 py-1.5 text-[11.5px] font-bold text-[#351080] transition-[background-color,transform] duration-150 hover:bg-[#EFE9FF] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
-            >
-              {autoCycle ? (
-                <>
-                  <Pause size={12} fill="currentColor" aria-hidden="true" />
-                  <span>Pause walkthrough</span>
-                </>
-              ) : (
-                <>
-                  <Play size={12} fill="currentColor" aria-hidden="true" />
-                  <span>Auto-play steps</span>
-                </>
-              )}
-            </button>
-          )}
+      <div
+        onMouseEnter={() => setIsInteracting(true)}
+        onMouseLeave={() => setIsInteracting(false)}
+        onFocusCapture={() => setIsInteracting(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setIsInteracting(false);
+          }
+        }}
+        className="mx-auto max-w-[1120px] px-4 sm:px-6"
+      >
+        <div className="max-w-[620px]">
+          <h2
+            id="how-heading"
+            className="m-0 text-[28px] font-extrabold leading-[1.16] tracking-[-0.02em] text-[#2A1163] sm:text-[36px] text-balance"
+          >
+            How a study session flows with Eyva
+          </h2>
+          <p className="m-0 mt-2.5 text-[15px] leading-[1.6] text-[#4E416B] text-pretty">
+            Four clear stages from setting your goal to wrapping up with a calm
+            reflection. Steps cycle automatically or click any stage to inspect.
+          </p>
         </div>
 
-        {/* Progress Bar */}
-        <div
-          aria-hidden="true"
-          className="mt-8 grid grid-cols-4 gap-2"
-        >
-          {STEPS.map((s, idx) => (
-            <div
-              key={s.num}
-              className="h-[5px] overflow-hidden rounded-full bg-[#E4DCF5]"
-            >
+        {/* Animated Segmented Progress Bar (====== ====== ====== ======) */}
+        <div aria-hidden="true" className="mt-8 grid grid-cols-4 gap-2.5">
+          {STEPS.map((s, idx) => {
+            const isPast = idx < activeIdx;
+            const isCurrent = idx === activeIdx;
+            return (
               <div
-                style={{ width: idx <= activeIdx ? "100%" : "0%" }}
-                className="h-full rounded-full bg-[#351080] transition-[width] duration-300 ease-out"
-              />
-            </div>
-          ))}
+                key={s.num}
+                className="h-[6px] overflow-hidden rounded-full bg-white/75 shadow-[inset_0_1px_2px_rgba(53,16,128,0.08)] ring-1 ring-[#351080]/10"
+              >
+                {isCurrent ? (
+                  <div
+                    key={`${s.num}-${activeIdx}`}
+                    ref={activeBarRef}
+                    style={{
+                      transform: prefersReduced ? "scaleX(1)" : "scaleX(0)",
+                    }}
+                    className="h-full w-full origin-left rounded-full bg-gradient-to-r from-[#351080] via-[#5125B5] to-[#6B3FE0] will-change-transform"
+                  />
+                ) : (
+                  <div
+                    style={{ transform: isPast ? "scaleX(1)" : "scaleX(0)" }}
+                    className="h-full w-full origin-left rounded-full bg-[#351080] transition-transform duration-300 ease-out"
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Interactive 2-Column Stepper + Stage Card */}
@@ -167,14 +210,11 @@ export default function HowItWorksSection() {
                   type="button"
                   role="tab"
                   aria-selected={isSelected}
-                  onClick={() => {
-                    setActiveIdx(idx);
-                    setAutoCycle(false);
-                  }}
-                  className={`relative flex w-full items-start gap-4 rounded-[18px] border p-4 sm:p-5 text-left transition-[background-color,border-color,transform] duration-150 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
+                  onClick={() => handleSelectStep(idx)}
+                  className={`relative flex w-full items-start gap-4 rounded-[18px] p-4 sm:p-5 text-left transition-[background-color,border-color,transform,box-shadow] duration-150 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
                     isSelected
-                      ? "border-[#351080] bg-white shadow-[0_10px_28px_rgba(45,10,115,0.08)]"
-                      : "border-[#E6DFF4] bg-white/65 hover:border-[#CBBCEB] hover:bg-white"
+                      ? "eyva-glass-card ring-1 ring-[#351080]/35"
+                      : "eyva-glass-inset hover:bg-white/75"
                   }`}
                 >
                   {isSelected && (
@@ -182,13 +222,13 @@ export default function HowItWorksSection() {
                       layoutId="eyva-how-active-pill"
                       transition={EYVA_SPRING}
                       aria-hidden="true"
-                      className="mt-0.5 flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[#FFF238] text-[12px] font-extrabold text-[#2A1163] tabular-nums"
+                      className="mt-0.5 flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[#FFF238] text-[12px] font-extrabold text-[#2A1163] tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
                     >
                       {step.num}
                     </motion.span>
                   )}
                   {!isSelected && (
-                    <span className="mt-0.5 flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[#EFE9FF] text-[12px] font-extrabold text-[#351080] tabular-nums">
+                    <span className="mt-0.5 flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[#EFE9FF]/90 text-[12px] font-extrabold text-[#351080] tabular-nums">
                       {step.num}
                     </span>
                   )}
@@ -197,7 +237,7 @@ export default function HowItWorksSection() {
                     <div className="text-[15px] font-bold text-[#2A1163]">
                       {step.title}
                     </div>
-                    <p className="m-0 mt-1 text-[12.5px] leading-[1.55] text-[#5E5278]">
+                    <p className="m-0 mt-1 text-[12.5px] leading-[1.55] text-[#4E416B]">
                       {step.summary}
                     </p>
                   </div>
@@ -216,14 +256,14 @@ export default function HowItWorksSection() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.22, ease: EYVA_EASE }}
                 role="tabpanel"
-                className="flex h-full flex-col justify-between rounded-[22px] border border-[#DDD3F2] bg-white p-6 sm:p-8 shadow-[0_12px_36px_rgba(45,10,115,0.08)]"
+                className="eyva-glass-card flex h-full flex-col justify-between rounded-[24px] p-6 sm:p-8"
               >
                 <div>
-                  <span className="inline-flex items-center rounded-full bg-[#FFF238] px-3.5 py-1 text-[11px] font-extrabold text-[#2A1163]">
+                  <span className="inline-flex items-center rounded-full bg-[#FFF238] px-3.5 py-1 text-[11px] font-extrabold text-[#2A1163] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
                     {active.badgeText}
                   </span>
 
-                  <div className="my-6 flex min-h-[160px] items-center justify-center rounded-[18px] bg-[#F5F1FF] p-6">
+                  <div className="eyva-glass-lavender my-6 flex min-h-[160px] items-center justify-center rounded-[18px] p-6">
                     <Image
                       src={active.visualSrc}
                       alt=""
@@ -242,7 +282,7 @@ export default function HowItWorksSection() {
                   {active.detailPoints.map((pt) => (
                     <li
                       key={pt}
-                      className="flex items-start gap-2.5 rounded-[11px] bg-[#FAF8FF] px-3.5 py-2.5 text-[12.5px] font-medium leading-[1.45] text-[#34245B]"
+                      className="eyva-glass-inset flex items-start gap-2.5 rounded-[11px] px-3.5 py-2.5 text-[12.5px] font-medium leading-[1.45] text-[#34245B]"
                     >
                       <span
                         aria-hidden="true"
