@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, ArrowLeft } from "lucide-react";
 import {
+  StaggerContainer,
+  StaggerItem,
+  TactileButton,
+} from "@/components/motion/MotionPrimitives";
+import {
   AVATAR_OPTIONS,
   DEFAULT_USER_PROFILE,
   getCachedProfile,
@@ -94,61 +99,73 @@ export default function ProfilePage() {
               fontWeight: 700,
               fontSize: "11px",
             }}
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#E3DCF2] bg-white px-3.5 py-1.5 !text-[11px] !font-bold !text-[#351080] shadow-2xs transition hover:bg-[#FAF8FF]"
+            className="group inline-flex w-fit items-center gap-1.5 rounded-full border border-[#E3DCF2] bg-white px-3.5 py-1.5 !text-[11px] !font-bold !text-[#351080] shadow-2xs transition-[background-color,transform] duration-150 hover:bg-[#FAF8FF] active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
           >
-            <ArrowLeft size={12.5} strokeWidth={2.3} />
+            <ArrowLeft
+              size={12.5}
+              strokeWidth={2.3}
+              className="transition-transform duration-150 group-hover:-translate-x-0.5"
+            />
             <span>Back to Home</span>
           </Link>
         </div>
 
-        {/* 1. Profile Avatar Card */}
-        <ProfileAvatarSelector
-          currentUsername={profile.username}
-          selectedAvatar={selectedAvatar}
-          options={AVATAR_OPTIONS}
-          onSelectAvatar={handleSelectAvatar}
-        />
+        <StaggerContainer className="flex flex-col" stagger={0.07}>
+          {/* 1. Profile Avatar Card */}
+          <StaggerItem>
+            <ProfileAvatarSelector
+              currentUsername={profile.username}
+              selectedAvatar={selectedAvatar}
+              options={AVATAR_OPTIONS}
+              onSelectAvatar={handleSelectAvatar}
+            />
+          </StaggerItem>
 
-        {/* 2 & 3. Username + Email Address Card */}
-        {isLoaded && (
-          <ProfileInfoForm
-            key={profile.username}
-            currentUsername={profile.username}
-            email={profile.email}
-            hasAvatarChanged={selectedAvatar !== profile.avatarSrc}
-            onSaveProfile={handleSaveProfile}
-          />
-        )}
+          {/* 2 & 3. Username + Email Address Card */}
+          {isLoaded && (
+            <StaggerItem>
+              <ProfileInfoForm
+                key={profile.username}
+                currentUsername={profile.username}
+                email={profile.email}
+                hasAvatarChanged={selectedAvatar !== profile.avatarSrc}
+                onSaveProfile={handleSaveProfile}
+              />
+            </StaggerItem>
+          )}
 
-        {/* 4. Logout Section Card */}
-        <section
-          aria-label="Session & Account Logout"
-          className="mt-5 flex flex-col items-start justify-between gap-4 rounded-[20px] border border-[#F2DCE6] bg-[#FFFBFD] p-5 sm:flex-row sm:items-center sm:px-7 sm:py-5 shadow-[0_6px_24px_rgba(45,10,115,0.03)]"
-        >
-          <div>
-            <h2 className="m-0 text-[14.5px] font-extrabold text-[#2A1163]">
-              Done studying for today?
-            </h2>
-            <p className="m-0 mt-0.5 text-[11px] text-[#7B728E]">
-              You can safely log out of your Eyva account anytime and pick up
-              right where you left off.
-            </p>
-          </div>
+          {/* 4. Logout Section Card */}
+          <StaggerItem>
+            <section
+              aria-label="Session & Account Logout"
+              className="mt-5 flex flex-col items-start justify-between gap-4 rounded-[20px] border border-[#F2DCE6] bg-[#FFFBFD] p-5 shadow-[0_6px_24px_rgba(45,10,115,0.03)] sm:flex-row sm:items-center sm:px-7 sm:py-5"
+            >
+              <div>
+                <h2 className="m-0 text-[14.5px] font-extrabold text-[#2A1163]">
+                  Done studying for today?
+                </h2>
+                <p className="m-0 mt-0.5 text-[11px] text-[#7B728E]">
+                  You can safely log out of your Eyva account anytime and pick up
+                  right where you left off.
+                </p>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => setIsLogoutModalOpen(true)}
-            style={{
-              color: "#9F3D69",
-              fontWeight: 700,
-              fontSize: "11.5px",
-            }}
-            className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-[10px] border border-[#E8BBD0] bg-[#FDF2F6] px-5 !text-[11.5px] !font-bold !text-[#9F3D69] transition hover:border-[#D99BB8] hover:bg-[#FAE5EE] active:scale-[0.99]"
-          >
-            <LogOut size={13.5} strokeWidth={2.3} />
-            <span>Logout</span>
-          </button>
-        </section>
+              <TactileButton
+                type="button"
+                onClick={() => setIsLogoutModalOpen(true)}
+                style={{
+                  color: "#9F3D69",
+                  fontWeight: 700,
+                  fontSize: "11.5px",
+                }}
+                className="inline-flex h-[38px] shrink-0 items-center justify-center gap-2 rounded-[10px] border border-[#E8BBD0] bg-[#FDF2F6] px-5 !text-[11.5px] !font-bold !text-[#9F3D69] transition-colors duration-150 hover:border-[#D99BB8] hover:bg-[#FAE5EE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9F3D69]"
+              >
+                <LogOut size={13.5} strokeWidth={2.3} />
+                <span>Logout</span>
+              </TactileButton>
+            </section>
+          </StaggerItem>
+        </StaggerContainer>
       </main>
 
       {/* Confirmation Dialog before Logout */}

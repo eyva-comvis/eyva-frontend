@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "motion/react";
+import { EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 import type {
   HistoryPeriodFilter,
   HistoryStatusFilter,
@@ -43,19 +45,28 @@ export default function SessionHistoryFilter({
             <button
               key={option.value}
               type="button"
+              aria-pressed={isActive}
               onClick={() => onPeriodChange(option.value)}
               style={{
                 fontSize: "10.5px",
                 fontWeight: 700,
                 color: isActive ? "#FFFFFF" : "#351080",
               }}
-              className={`rounded-full px-3 py-1.5 text-[10.5px] !font-bold transition ${
+              className={`relative rounded-full px-3 py-1.5 text-[10.5px] !font-bold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
                 isActive
-                  ? "bg-[#351080] !text-white shadow-xs"
+                  ? "!text-white"
                   : "bg-[#F5F1FF] !text-[#351080] hover:bg-[#EAE1FF]"
               }`}
             >
-              {option.label}
+              {isActive && (
+                <motion.span
+                  layoutId="eyva-history-period-pill"
+                  transition={EYVA_SPRING}
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-[#351080] shadow-xs"
+                />
+              )}
+              <span className="relative z-10">{option.label}</span>
             </button>
           );
         })}
@@ -72,19 +83,28 @@ export default function SessionHistoryFilter({
             <button
               key={option.value}
               type="button"
+              aria-pressed={isActive}
               onClick={() => onStatusChange(option.value)}
               style={{
                 fontSize: "10.5px",
                 fontWeight: 700,
                 color: isActive ? "#2A1163" : "#6E6285",
               }}
-              className={`rounded-full border px-3 py-1.5 text-[10.5px] !font-bold transition ${
+              className={`relative rounded-full border px-3 py-1.5 text-[10.5px] !font-bold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
                 isActive
-                  ? "border-[#351080] bg-[#FFF238] !text-[#2A1163] shadow-xs"
+                  ? "border-transparent !text-[#2A1163]"
                   : "border-[#E6E0F2] bg-white !text-[#6E6285] hover:border-[#351080]/40 hover:bg-[#FAF8FF]"
               }`}
             >
-              {option.label}
+              {isActive && (
+                <motion.span
+                  layoutId="eyva-history-status-pill"
+                  transition={EYVA_SPRING}
+                  aria-hidden="true"
+                  className="absolute -inset-px rounded-full border border-[#351080] bg-[#FFF238] shadow-xs"
+                />
+              )}
+              <span className="relative z-10">{option.label}</span>
             </button>
           );
         })}

@@ -1,15 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import {
-  Home as HomeIcon,
-  History as HistoryIcon,
-  BarChart2,
-  Settings,
-  RotateCcw,
-} from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import type {
   StatisticsDashboardData,
   StatisticsPeriod,
@@ -20,6 +12,15 @@ import {
 } from "@/services/api/statistics";
 import { getCachedProfile } from "@/services/api/profile";
 import { errorMessage as describeError } from "@/services/api/client";
+import {
+  DashboardSidebar,
+  DashboardTopBar,
+} from "@/components/dashboard/DashboardNav";
+import {
+  StaggerContainer,
+  StaggerItem,
+  TactileButton,
+} from "@/components/motion/MotionPrimitives";
 import StatisticsSummaryCards from "@/components/statistics/StatisticsSummaryCards";
 import StatisticsPeriodFilter from "@/components/statistics/StatisticsPeriodFilter";
 import FocusTimeOverviewChart from "@/components/statistics/FocusTimeOverviewChart";
@@ -68,140 +69,17 @@ export default function StatisticsPage() {
 
   return (
     <div className="relative flex min-h-screen w-full bg-white text-[#351080]">
-      {/* =========================================================
-          SIDEBAR (Desktop Fixed Left Sidebar matching Home & History)
-      ========================================================= */}
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[198px] flex-col justify-between border-r border-[#EAE5F2] bg-white px-4 pt-6 pb-0 md:flex">
-        <div>
-          {/* Brand Logo */}
-          <div className="mb-8 px-2">
-            <Link href="/dashboard/home" aria-label="EYVA Home">
-              <Image
-                src="/images/eyva_icon.svg"
-                alt="EYVA Smart Study Companion"
-                width={108}
-                height={52}
-                priority
-                className="h-auto w-[108px]"
-              />
-            </Link>
-          </div>
-
-          {/* Navigation (Statistics Active) */}
-          <nav className="flex flex-col gap-1.5">
-            <Link
-              href="/dashboard/home"
-              style={{ color: "#351080", fontWeight: 700, fontSize: "12.5px" }}
-              className="flex items-center gap-3 rounded-full px-4 py-2.5 text-[12.5px] !font-bold !text-[#351080] transition hover:bg-[#F5F1FC]"
-            >
-              <HomeIcon size={16} strokeWidth={2.2} />
-              <span>Home</span>
-            </Link>
-
-            <Link
-              href="/dashboard/history"
-              style={{ color: "#351080", fontWeight: 700, fontSize: "12.5px" }}
-              className="flex items-center gap-3 rounded-full px-4 py-2.5 text-[12.5px] !font-bold !text-[#351080] transition hover:bg-[#F5F1FC]"
-            >
-              <HistoryIcon size={16} strokeWidth={2.2} />
-              <span>History</span>
-            </Link>
-
-            <Link
-              href="/dashboard/statistics"
-              style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "12.5px" }}
-              className="flex items-center gap-3 rounded-full bg-[#351080] px-4 py-2.5 text-[12.5px] !font-bold !text-white transition"
-            >
-              <BarChart2 size={16} strokeWidth={2.2} />
-              <span>Statistics</span>
-            </Link>
-          </nav>
-        </div>
-
-        {/* Leaf Decoration at Bottom Left */}
-        <div className="mt-auto flex justify-center overflow-hidden pt-4">
-          <Image
-            src="/images/leaf_for_homepage.svg"
-            alt="Decorative Leaf"
-            width={118}
-            height={208}
-            className="h-auto w-[115px] select-none pointer-events-none translate-y-1"
-          />
-        </div>
-      </aside>
+      <DashboardSidebar />
 
       {/* =========================================================
           MAIN CONTENT AREA
       ========================================================= */}
       <main className="relative flex-1 px-5 pt-6 pb-12 sm:px-8 md:ml-[198px] md:px-12">
-        {/* Top Row: Mobile Logo & Top Right Profile Avatar */}
-        <div className="flex items-center justify-between md:justify-end">
-          {/* Mobile Brand Logo */}
-          <div className="md:hidden">
-            <Link href="/dashboard/home" aria-label="EYVA Home">
-              <Image
-                src="/images/eyva_icon.svg"
-                alt="EYVA Smart Study Companion"
-                width={98}
-                height={46}
-                priority
-                className="h-auto w-[98px]"
-              />
-            </Link>
-          </div>
-
-          {/* Top Right Profile Avatar with Gear Icon */}
-          <Link
-            href="/dashboard/profile"
-            aria-label="Edit Profile"
-            className="relative inline-block transition-transform hover:scale-105"
-          >
-            <div className="h-[38px] w-[38px] overflow-hidden rounded-full border-2 border-[#351080] bg-[#F9E8FF]">
-              <Image
-                src={avatarSrc}
-                alt="User Avatar"
-                width={38}
-                height={38}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-[15px] w-[15px] items-center justify-center rounded-full border border-white bg-[#EDE6FA] text-[#351080] shadow-xs">
-              <Settings size={10} strokeWidth={2.5} />
-            </span>
-          </Link>
-        </div>
-
-        {/* Mobile Navigation Pills (Shown on screens < md) */}
-        <nav className="mt-4 flex items-center gap-2 border-b border-[#EFEAF7] pb-3 md:hidden">
-          <Link
-            href="/dashboard/home"
-            style={{ color: "#351080", fontWeight: 700, fontSize: "11.5px" }}
-            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11.5px] !font-bold !text-[#351080] hover:bg-[#F5F1FC]"
-          >
-            <HomeIcon size={14} strokeWidth={2.2} />
-            <span>Home</span>
-          </Link>
-          <Link
-            href="/dashboard/history"
-            style={{ color: "#351080", fontWeight: 700, fontSize: "11.5px" }}
-            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11.5px] !font-bold !text-[#351080] hover:bg-[#F5F1FC]"
-          >
-            <HistoryIcon size={14} strokeWidth={2.2} />
-            <span>History</span>
-          </Link>
-          <Link
-            href="/dashboard/statistics"
-            style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "11.5px" }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#351080] px-3.5 py-1.5 text-[11.5px] !font-bold !text-white"
-          >
-            <BarChart2 size={14} strokeWidth={2.2} />
-            <span>Statistics</span>
-          </Link>
-        </nav>
+        <DashboardTopBar avatarSrc={avatarSrc} />
 
         {/* Page Title Section */}
         <div className="mt-2 mb-7 text-center">
-          <h1 className="m-0 mb-1.5 text-[28px] sm:text-[30px] font-bold tracking-tight text-[#2A1163]">
+          <h1 className="m-0 mb-1.5 text-[28px] font-bold tracking-tight text-[#2A1163] sm:text-[30px]">
             Study Statistics
           </h1>
           <p className="m-0 text-[11.5px] tracking-wide text-[#7B728E]">
@@ -211,16 +89,20 @@ export default function StatisticsPage() {
         </div>
 
         {/* Main Content Container */}
-        <div className="mx-auto max-w-[960px]">
+        <StaggerContainer className="mx-auto max-w-[960px]" stagger={0.07}>
           {/* 1. Three Summary Cards (Consistent with HistoryPage) */}
-          <StatisticsSummaryCards stats={dashboardData.summary} />
+          <StaggerItem>
+            <StatisticsSummaryCards stats={dashboardData.summary} />
+          </StaggerItem>
 
           {/* 2. Period Filter (Weekly | Monthly | All Time) */}
-          <StatisticsPeriodFilter
-            period={period}
-            periodSubtitle={dashboardData.periodSubtitle}
-            onChange={setPeriod}
-          />
+          <StaggerItem>
+            <StatisticsPeriodFilter
+              period={period}
+              periodSubtitle={dashboardData.periodSubtitle}
+              onChange={setPeriod}
+            />
+          </StaggerItem>
 
           {/* Error State */}
           {errorMessage ? (
@@ -228,7 +110,7 @@ export default function StatisticsPage() {
               <div className="text-[14px] font-bold text-[#9F3D69]">
                 {errorMessage}
               </div>
-              <button
+              <TactileButton
                 type="button"
                 onClick={() => loadStatistics(period)}
                 style={{
@@ -236,32 +118,32 @@ export default function StatisticsPage() {
                   fontWeight: 700,
                   fontSize: "11px",
                 }}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#9F3D69] px-4 py-2 text-[11px] !font-bold !text-white transition hover:opacity-90"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#9F3D69] px-4 py-2 text-[11px] !font-bold !text-white transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9F3D69]"
               >
                 <RotateCcw size={12} strokeWidth={2.2} />
                 <span>Try again</span>
-              </button>
+              </TactileButton>
             </div>
           ) : isLoading ? (
             /* Loading State */
             <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <div className="h-[340px] animate-pulse rounded-[20px] border border-[#EAE4F3] bg-[#FAF8FF]" />
-              <div className="h-[340px] animate-pulse rounded-[20px] border border-[#EAE4F3] bg-[#FAF8FF]" />
+              <div className="h-[340px] rounded-[20px] border border-[#EAE4F3] bg-[#FAF8FF] motion-safe:animate-pulse" />
+              <div className="h-[340px] rounded-[20px] border border-[#EAE4F3] bg-[#FAF8FF] motion-safe:animate-pulse" />
             </div>
           ) : !hasSessions ? (
             /* Empty State ("Your journey starts here!") */
-            <StatisticsEmptyState />
+            <StaggerItem>
+              <StatisticsEmptyState />
+            </StaggerItem>
           ) : (
             /* 3. Charts + Focus Insights */
             <>
               <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-                {/* Focus Time Overview (Bar Chart) */}
                 <FocusTimeOverviewChart
                   points={dashboardData.points}
                   period={period}
                 />
 
-                {/* Study Consistency (Area Chart + Daily Habit Strip) */}
                 <StudyConsistencyChart
                   points={dashboardData.points}
                   period={period}
@@ -272,7 +154,7 @@ export default function StatisticsPage() {
               <FocusInsightsSection insights={dashboardData.insights} />
             </>
           )}
-        </div>
+        </StaggerContainer>
       </main>
     </div>
   );

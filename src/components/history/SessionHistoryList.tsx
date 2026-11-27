@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Sparkles, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { EYVA_EASE } from "@/components/motion/MotionPrimitives";
 import type {
   HistoryPeriodFilter,
   HistoryStatusFilter,
@@ -34,6 +36,7 @@ export default function SessionHistoryList({
   onSelectSession,
   onResetFilters,
 }: SessionHistoryListProps) {
+  const prefersReduced = useReducedMotion();
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
 
   const visibleSessions = sessions.slice(0, visibleCount);
@@ -152,13 +155,22 @@ export default function SessionHistoryList({
 
                 {/* Sessions in Group */}
                 <div className="flex flex-col gap-2.5">
-                  {groupItems.map((session) => (
-                    <SessionHistoryItem
-                      key={session.id}
-                      session={session}
-                      onSelect={onSelectSession}
-                    />
-                  ))}
+                  <AnimatePresence initial={false}>
+                    {groupItems.map((session) => (
+                      <motion.div
+                        key={session.id}
+                        initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                        transition={{ duration: 0.22, ease: EYVA_EASE }}
+                      >
+                        <SessionHistoryItem
+                          session={session}
+                          onSelect={onSelectSession}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               </div>
             );

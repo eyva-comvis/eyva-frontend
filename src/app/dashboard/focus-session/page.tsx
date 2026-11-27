@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Settings,
   Music,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   RefreshCw,
 } from "lucide-react";
+import { EYVA_EASE, EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 import SpotifyEmbedPlayer, {
   type SpotifyEmbedHandle,
 } from "@/components/music/SpotifyEmbedPlayer";
@@ -68,6 +70,7 @@ const WAVEFORM_HEIGHTS = [
 
 export default function FocusSessionPage() {
   const router = useRouter();
+  const prefersReduced = useReducedMotion();
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [avatarSrc, setAvatarSrc] = useState("/images/MaleAva.svg");
@@ -882,6 +885,26 @@ export default function FocusSessionPage() {
             {/* Circular Timer */}
             <div className="my-8 flex flex-col items-center justify-center">
               <div className="relative flex h-[236px] w-[236px] items-center justify-center rounded-full p-[9px]">
+                {/* Soft breathing halo while actively focusing */}
+                {monitor.ready &&
+                  !isPaused &&
+                  activeAlert === null &&
+                  !prefersReduced && (
+                    <motion.span
+                      aria-hidden="true"
+                      animate={{
+                        scale: [1, 1.055, 1],
+                        opacity: [0.16, 0.36, 0.16],
+                      }}
+                      transition={{
+                        duration: 4.2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      className="pointer-events-none absolute -inset-2.5 rounded-full border-2 border-[#FFF238]/65"
+                    />
+                  )}
+
                 {/* Animated SVG Progress Ring */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
@@ -919,7 +942,7 @@ export default function FocusSessionPage() {
                   <span className="text-[9.5px] font-semibold tracking-[0.06em] text-[#8F82AA] uppercase">
                     TIME TO FOCUS
                   </span>
-                  <strong className="my-2 text-[44px] font-extrabold leading-none tracking-tight text-[#4D3382]">
+                  <strong className="my-2 text-[44px] font-extrabold leading-none tracking-tight text-[#4D3382] tabular-nums">
                     {formattedMinutes} : {formattedSeconds}
                   </strong>
                   <span className="text-[10px] font-medium text-[#8F82AA]">
@@ -939,7 +962,7 @@ export default function FocusSessionPage() {
                     fontWeight: 700,
                     fontSize: "11px",
                   }}
-                  className="flex h-[38px] min-w-[92px] items-center justify-center gap-2 rounded-[10px] border-0 bg-white px-4 text-[11px] !font-bold !text-[#5C438E] shadow-xs transition hover:bg-[#F7F4FC] active:scale-[0.98]"
+                  className="flex h-[38px] min-w-[92px] items-center justify-center gap-2 rounded-[10px] border-0 bg-white px-4 text-[11px] !font-bold !text-[#5C438E] shadow-xs transition-[background-color,transform] duration-150 hover:bg-[#F7F4FC] motion-safe:enabled:active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFF238]"
                 >
                   <span className="text-[10px] tracking-tighter">
                     {isPaused ? "▶" : "❚❚"}
@@ -956,7 +979,7 @@ export default function FocusSessionPage() {
                     fontWeight: 700,
                     fontSize: "11px",
                   }}
-                  className="flex h-[38px] min-w-[92px] items-center justify-center rounded-[10px] border-0 bg-[#FDF0F5] px-4 text-[11px] !font-bold !text-[#A34870] shadow-xs transition hover:bg-[#FBE4EE] active:scale-[0.98]"
+                  className="flex h-[38px] min-w-[92px] items-center justify-center rounded-[10px] border-0 bg-[#FDF0F5] px-4 text-[11px] !font-bold !text-[#A34870] shadow-xs transition-[background-color,transform] duration-150 hover:bg-[#FBE4EE] motion-safe:enabled:active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFF238]"
                 >
                   {isEnding ? "Ending…" : "End session"}
                 </button>
@@ -1005,13 +1028,23 @@ export default function FocusSessionPage() {
                 <div className="flex items-center gap-1.5">
                   <span
                     role="status"
-                    className={`rounded-[8px] px-2.5 py-1.5 text-[9px] font-bold ${
+                    className={`inline-flex overflow-hidden rounded-[8px] px-2.5 py-1.5 text-[9px] font-bold transition-colors duration-200 ${
                       monitor.status === "DROWSY_NEED_REST" || monitor.status === "POSSIBLE_DROWSINESS"
                         ? "bg-[#FDF0F5] text-[#A34870]"
                         : "bg-[#F2ECFF] text-[#2A1163]"
                     }`}
                   >
-                    {statusLabel(monitor.status, monitor.faceDetected)}
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={statusLabel(monitor.status, monitor.faceDetected)}
+                        initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -3 }}
+                        transition={{ duration: 0.16, ease: EYVA_EASE }}
+                      >
+                        {statusLabel(monitor.status, monitor.faceDetected)}
+                      </motion.span>
+                    </AnimatePresence>
                   </span>
 
                   <button
@@ -1118,30 +1151,46 @@ export default function FocusSessionPage() {
                       role="tab"
                       aria-selected={musicSource === "builtin"}
                       onClick={() => handleSwitchMusicSource("builtin")}
-                      className={`rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-[background-color,color] duration-150 ${
+                      className={`relative rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#351080] ${
                         musicSource === "builtin"
-                          ? "bg-[#351080] !text-white shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                          ? "!text-white"
                           : "bg-transparent text-[#6C5B8D] hover:text-[#351080]"
                       }`}
                     >
-                      Eyva Calm
+                      {musicSource === "builtin" && (
+                        <motion.span
+                          layoutId="focus-session-music-tab"
+                          transition={EYVA_SPRING}
+                          aria-hidden="true"
+                          className="absolute inset-0 rounded-[7px] bg-[#351080] shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                        />
+                      )}
+                      <span className="relative z-10">Eyva Calm</span>
                     </button>
                     <button
                       type="button"
                       role="tab"
                       aria-selected={musicSource === "spotify"}
                       onClick={() => handleSwitchMusicSource("spotify")}
-                      className={`inline-flex items-center gap-1.5 rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-[background-color,color] duration-150 ${
+                      className={`relative inline-flex items-center gap-1.5 rounded-[7px] border-0 px-2.5 py-1 text-[10px] font-bold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#351080] ${
                         musicSource === "spotify"
-                          ? "bg-[#351080] !text-white shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                          ? "!text-white"
                           : "bg-transparent text-[#6C5B8D] hover:text-[#351080]"
                       }`}
                     >
+                      {musicSource === "spotify" && (
+                        <motion.span
+                          layoutId="focus-session-music-tab"
+                          transition={EYVA_SPRING}
+                          aria-hidden="true"
+                          className="absolute inset-0 rounded-[7px] bg-[#351080] shadow-[0_1px_2px_rgba(53,16,128,0.25)]"
+                        />
+                      )}
                       <span
                         aria-hidden="true"
-                        className="inline-block h-[6px] w-[6px] rounded-full bg-[#1DB954]"
+                        className="relative z-10 inline-block h-[6px] w-[6px] rounded-full bg-[#1DB954]"
                       />
-                      <span>Spotify</span>
+                      <span className="relative z-10">Spotify</span>
                     </button>
                   </div>
 
@@ -1273,15 +1322,23 @@ export default function FocusSessionPage() {
                   </div>
 
                   {/* Mid-session Spotify Picker (does not reset timer/session) */}
-                  {showSpotifyPicker && (
-                    <div className="rounded-[12px] border border-[#EAE4F3] bg-[#FDFCFE] p-3">
-                      <SpotifyPicker
-                        compact
-                        selected={spotifyItem}
-                        onSelect={handleSelectSpotifyItem}
-                      />
-                    </div>
-                  )}
+                  <AnimatePresence initial={false}>
+                    {showSpotifyPicker && (
+                      <motion.div
+                        initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                        transition={{ duration: 0.2, ease: EYVA_EASE }}
+                        className="rounded-[12px] border border-[#EAE4F3] bg-[#FDFCFE] p-3"
+                      >
+                        <SpotifyPicker
+                          compact
+                          selected={spotifyItem}
+                          onSelect={handleSelectSpotifyItem}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Spotify Embed Player (IFrame API + fallback iframe) */}
                   <SpotifyEmbedPlayer
@@ -1300,227 +1357,276 @@ export default function FocusSessionPage() {
       </div>
 
       {/* =========================================================
-          MODAL OVERLAY: DEMO ALERT 1 ("Feeling a little sleepy?")
+          MODAL OVERLAY: ALERT 1 & ALERT 2
       ========================================================= */}
-      {activeAlert === "alert1" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6">
-          <div className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]">
-            {/* Yellow Bell Icon Box */}
-            <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z" />
-              </svg>
-            </div>
-
-            {/* Eyebrow & Heading */}
-            <div className="text-[9.5px] font-semibold tracking-[0.08em] text-[#7B728E] uppercase">
-              A GENTLE CHECK-IN
-            </div>
-            <h2 className="m-0 mt-1 text-[22px] font-bold tracking-tight text-[#2A1163]">
-              Feeling a little sleepy?
-            </h2>
-            <p className="m-0 mt-2 text-[10.5px] leading-[1.6] text-[#7B728E]">
-              We noticed some possible signs of drowsiness.
-              <br />
-              Take a breath, adjust your posture, and check in with yourself
-            </p>
-
-            {/* Yellow Reminder Banner */}
-            <div className="mt-5 flex items-center gap-2.5 rounded-[10px] bg-[#FFF566] px-3.5 py-2.5 text-[9.5px] font-medium text-[#4D387A]">
-              <Sprout size={14} strokeWidth={2} className="shrink-0 text-[#4D387A]" />
-              <span>
-                You&apos;re still in your session. This is just a friendly
-                reminder.
-              </span>
-            </div>
-
-            {/* Got it, I'll refocus button */}
-            <button
-              type="button"
-              onClick={async () => {
-                stopVoice();
-                void unlockAudio();
-                await monitor.acknowledge();
-                setActiveAlert(null);
-              }}
-              style={{
-                color: "#FFFFFF",
-                fontWeight: 700,
-                fontSize: "11.5px",
-              }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[9px] border-0 bg-[#624794] py-3 px-4 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#2A1163] transition hover:bg-[#553B87] active:translate-y-[1px]"
+      <AnimatePresence>
+        {activeAlert === "alert1" && (
+          <motion.div
+            key="alert1-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: EYVA_EASE }}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6"
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="alert1-heading"
+              initial={
+                prefersReduced
+                  ? { opacity: 0 }
+                  : { opacity: 0, scale: 0.94, y: 12 }
+              }
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={
+                prefersReduced
+                  ? { opacity: 0 }
+                  : { opacity: 0, scale: 0.96, y: 8 }
+              }
+              transition={EYVA_SPRING}
+              className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]"
             >
-              <span>Got it, I&apos;ll refocus</span>
-              <ArrowRight size={13} strokeWidth={2.4} />
-            </button>
-
-            {/* End my session button */}
-            <button
-              type="button"
-              onClick={handleEndSession}
-              style={{
-                color: "#9F3D69",
-                fontWeight: 700,
-                fontSize: "11px",
-              }}
-              className="mt-3.5 flex w-full items-center justify-center gap-1.5 border-0 bg-transparent py-1 text-center text-[11px] !font-bold !text-[#9F3D69] transition hover:opacity-80"
-            >
-              <span className="inline-flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[#9F3D69] text-[8px] leading-none text-white">
-                ✕
-              </span>
-              <span>End my session</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================
-          MODAL OVERLAY: DEMO ALERT 2 ("Let's listen to your body")
-      ========================================================= */}
-      {activeAlert === "alert2" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6">
-          <div className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]">
-            {/* Yellow Ringing Bell Icon Box */}
-            <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                {/* Left & Right Ringing Arcs */}
-                <path
-                  d="M4.2 8.2C4.8 6.4 6.1 4.9 7.8 4.1"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M19.8 8.2C19.2 6.4 17.9 4.9 16.2 4.1"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                {/* Solid Bell Body */}
-                <path
-                  d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z"
+              {/* Yellow Bell Icon Box */}
+              <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
                   fill="currentColor"
-                />
-              </svg>
-            </div>
-
-            {/* Eyebrow & Heading */}
-            <div className="text-[9.5px] font-semibold tracking-[0.08em] text-[#7B728E] uppercase">
-              TIME TO CHECK-IN
-            </div>
-            <h2 className="m-0 mt-1 text-[22px] font-bold tracking-tight text-[#2A1163]">
-              Let&apos;s listen to your body
-            </h2>
-            <p className="m-0 mt-2 text-[10.5px] leading-[1.6] text-[#7B728E]">
-              Possible drowsiness is still being detected. What would feel
-              <br />
-              right for you?
-            </p>
-
-            {/* Option 1: Take a break -> langsung ke Break Session */}
-            <button
-              type="button"
-              onClick={handleTakeBreakFromAlert2}
-              disabled={isTransitioningBreak || isEnding}
-              className="mt-5 flex w-full items-center justify-between rounded-[12px] border border-[#E4DCFA] bg-[#F2ECFF] px-4 py-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-[#EAE1FF] enabled:active:scale-[0.96]"
-            >
-              <div className="flex items-center gap-3.5">
-                {/* Purple Circle Icon */}
-                <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[#5C3D99] text-white">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M3.5 8.5L8.5 3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-
-                <div>
-                  <div
-                    style={{ fontSize: "11px", fontWeight: 700 }}
-                    className="!text-[11px] !font-bold text-[#4A2E86]"
-                  >
-                    {isTransitioningBreak
-                      ? "Starting break…"
-                      : `Take a ${breakMinutes}-min break`}
-                  </div>
-                  <div
-                    style={{ fontSize: "9.5px", fontWeight: 400 }}
-                    className="mt-0.5 !text-[9.5px] !font-normal text-[#5A5070]"
-                  >
-                    Pause your timer and recharge before continuing
-                  </div>
-                </div>
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z" />
+                </svg>
               </div>
 
-              <ArrowRight
-                size={15}
-                strokeWidth={2}
-                className="shrink-0 text-[#351080]"
-              />
-            </button>
+              {/* Eyebrow & Heading */}
+              <div className="text-[9.5px] font-semibold tracking-[0.08em] text-[#7B728E] uppercase">
+                A GENTLE CHECK-IN
+              </div>
+              <h2
+                id="alert1-heading"
+                className="m-0 mt-1 text-[22px] font-bold tracking-tight text-[#2A1163]"
+              >
+                Feeling a little sleepy?
+              </h2>
+              <p className="m-0 mt-2 text-[10.5px] leading-[1.6] text-[#7B728E]">
+                We noticed some possible signs of drowsiness.
+                <br />
+                Take a breath, adjust your posture, and check in with yourself
+              </p>
 
-            {/* Option 2: End my session */}
-            <button
-              type="button"
-              onClick={handleEndSession}
-              disabled={isTransitioningBreak || isEnding}
-              className="mt-3 flex w-full items-center justify-between rounded-[12px] border border-[#F5DCE6] bg-[#FDF2F6] px-4 py-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-[#FCE6EE] enabled:active:scale-[0.96]"
-            >
-              <div className="flex items-center gap-3.5">
-                {/* Berry Circle X Icon */}
-                <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[#9F3D69] text-[10px] font-bold leading-none text-white">
+              {/* Yellow Reminder Banner */}
+              <div className="mt-5 flex items-center gap-2.5 rounded-[10px] bg-[#FFF566] px-3.5 py-2.5 text-[9.5px] font-medium text-[#4D387A]">
+                <Sprout size={14} strokeWidth={2} className="shrink-0 text-[#4D387A]" />
+                <span>
+                  You&apos;re still in your session. This is just a friendly
+                  reminder.
+                </span>
+              </div>
+
+              {/* Got it, I'll refocus button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  stopVoice();
+                  void unlockAudio();
+                  await monitor.acknowledge();
+                  setActiveAlert(null);
+                }}
+                style={{
+                  color: "#FFFFFF",
+                  fontWeight: 700,
+                  fontSize: "11.5px",
+                }}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[9px] border-0 bg-[#624794] px-4 py-3 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#2A1163] transition-[background-color,transform] duration-150 hover:bg-[#553B87] motion-safe:enabled:active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
+              >
+                <span>Got it, I&apos;ll refocus</span>
+                <ArrowRight size={13} strokeWidth={2.4} />
+              </button>
+
+              {/* End my session button */}
+              <button
+                type="button"
+                onClick={handleEndSession}
+                style={{
+                  color: "#9F3D69",
+                  fontWeight: 700,
+                  fontSize: "11px",
+                }}
+                className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-[6px] border-0 bg-transparent py-1 text-center text-[11px] !font-bold !text-[#9F3D69] transition-opacity duration-150 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9F3D69]"
+              >
+                <span className="inline-flex h-[13px] w-[13px] items-center justify-center rounded-full bg-[#9F3D69] text-[8px] leading-none text-white">
                   ✕
                 </span>
+                <span>End my session</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
 
-                <div>
-                  <div
-                    style={{ fontSize: "11px", fontWeight: 700 }}
-                    className="!text-[11px] !font-bold text-[#9F3D69]"
-                  >
-                    {isEnding ? "Ending session…" : "End my session"}
-                  </div>
-                  <div
-                    style={{ fontSize: "9.5px", fontWeight: 400 }}
-                    className="mt-0.5 !text-[9.5px] !font-normal text-[#5A5070]"
-                  >
-                    Finish here and see my summary
-                  </div>
-                </div>
+        {activeAlert === "alert2" && (
+          <motion.div
+            key="alert2-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: EYVA_EASE }}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[#351080]/18 px-4 py-6"
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="alert2-heading"
+              initial={
+                prefersReduced
+                  ? { opacity: 0 }
+                  : { opacity: 0, scale: 0.94, y: 12 }
+              }
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={
+                prefersReduced
+                  ? { opacity: 0 }
+                  : { opacity: 0, scale: 0.96, y: 8 }
+              }
+              transition={EYVA_SPRING}
+              className="relative w-full max-w-[395px] rounded-[20px] bg-[#FFFEF9] p-7 shadow-[0_20px_60px_rgba(42,17,99,0.22)]"
+            >
+              {/* Yellow Ringing Bell Icon Box */}
+              <div className="mb-4 flex h-[48px] w-[48px] items-center justify-center rounded-[13px] bg-[#FFF238] text-[#5C3D99]">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4.2 8.2C4.8 6.4 6.1 4.9 7.8 4.1"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M19.8 8.2C19.2 6.4 17.9 4.9 16.2 4.1"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z"
+                    fill="currentColor"
+                  />
+                </svg>
               </div>
 
-              <ArrowRight
-                size={15}
-                strokeWidth={2}
-                className="shrink-0 text-[#3A2A35]"
-              />
-            </button>
-          </div>
-        </div>
-      )}
+              {/* Eyebrow & Heading */}
+              <div className="text-[9.5px] font-semibold tracking-[0.08em] text-[#7B728E] uppercase">
+                TIME TO CHECK-IN
+              </div>
+              <h2
+                id="alert2-heading"
+                className="m-0 mt-1 text-[22px] font-bold tracking-tight text-[#2A1163]"
+              >
+                Let&apos;s listen to your body
+              </h2>
+              <p className="m-0 mt-2 text-[10.5px] leading-[1.6] text-[#7B728E]">
+                Possible drowsiness is still being detected. What would feel
+                <br />
+                right for you?
+              </p>
+
+              {/* Option 1: Take a break -> langsung ke Break Session */}
+              <button
+                type="button"
+                onClick={handleTakeBreakFromAlert2}
+                disabled={isTransitioningBreak || isEnding}
+                className="mt-5 flex w-full items-center justify-between rounded-[12px] border border-[#E4DCFA] bg-[#F2ECFF] px-4 py-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-[#EAE1FF] motion-safe:enabled:active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[#5C3D99] text-white">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M3.5 8.5L8.5 3.5"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+
+                  <div>
+                    <div
+                      style={{ fontSize: "11px", fontWeight: 700 }}
+                      className="!text-[11px] !font-bold text-[#4A2E86]"
+                    >
+                      {isTransitioningBreak
+                        ? "Starting break…"
+                        : `Take a ${breakMinutes}-min break`}
+                    </div>
+                    <div
+                      style={{ fontSize: "9.5px", fontWeight: 400 }}
+                      className="mt-0.5 !text-[9.5px] !font-normal text-[#5A5070]"
+                    >
+                      Pause your timer and recharge before continuing
+                    </div>
+                  </div>
+                </div>
+
+                <ArrowRight
+                  size={15}
+                  strokeWidth={2}
+                  className="shrink-0 text-[#351080]"
+                />
+              </button>
+
+              {/* Option 2: End my session */}
+              <button
+                type="button"
+                onClick={handleEndSession}
+                disabled={isTransitioningBreak || isEnding}
+                className="mt-3 flex w-full items-center justify-between rounded-[12px] border border-[#F5DCE6] bg-[#FDF2F6] px-4 py-3.5 text-left transition-[background-color,transform] duration-150 hover:bg-[#FCE6EE] motion-safe:enabled:active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9F3D69]"
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[#9F3D69] text-[10px] font-bold leading-none text-white">
+                    ✕
+                  </span>
+
+                  <div>
+                    <div
+                      style={{ fontSize: "11px", fontWeight: 700 }}
+                      className="!text-[11px] !font-bold text-[#9F3D69]"
+                    >
+                      {isEnding ? "Ending session…" : "End my session"}
+                    </div>
+                    <div
+                      style={{ fontSize: "9.5px", fontWeight: 400 }}
+                      className="mt-0.5 !text-[9.5px] !font-normal text-[#5A5070]"
+                    >
+                      Finish here and see my summary
+                    </div>
+                  </div>
+                </div>
+
+                <ArrowRight
+                  size={15}
+                  strokeWidth={2}
+                  className="shrink-0 text-[#3A2A35]"
+                />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

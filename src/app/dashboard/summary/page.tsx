@@ -3,10 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Settings } from "lucide-react";
 import type { SessionSummary } from "@/types/session";
 import { getLastSummary, sessionsApi } from "@/services/api/sessions";
 import AiInsightCard from "@/components/ai/AiInsightCard";
+import {
+  AnimatedCounter,
+  EYVA_SPRING,
+  InteractiveCard,
+  StaggerContainer,
+  StaggerItem,
+} from "@/components/motion/MotionPrimitives";
 
 const END_REASON_TEXT: Record<string, string> = {
   COMPLETED: "You finished your full focus time",
@@ -15,6 +23,7 @@ const END_REASON_TEXT: Record<string, string> = {
 };
 
 export default function SummaryPage() {
+  const prefersReduced = useReducedMotion();
   const [avatarSrc, setAvatarSrc] = useState("/images/MaleAva.svg");
   const [sessionTitle, setSessionTitle] = useState("Study Session");
   const [summary, setSummary] = useState<SessionSummary | null>(null);
@@ -216,284 +225,321 @@ export default function SummaryPage() {
       </div>
 
       {/* MAIN CONTAINER */}
-      <div className="mx-auto max-w-[920px] flex flex-col gap-5">
+      <StaggerContainer
+        className="mx-auto flex max-w-[920px] flex-col gap-5"
+        stagger={0.07}
+      >
         {/* 1. YOU WORKED ON CARD */}
-        <section className="flex items-center justify-between rounded-[16px] border border-[#EAE4F3] bg-white px-6 py-4 shadow-[0_4px_14px_rgba(45,10,115,0.06)]">
-          <div className="flex items-center gap-4">
-            {/* Document Check Icon */}
-            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center text-[#5C3D99]">
-              <svg
-                width="24"
-                height="28"
-                viewBox="0 0 24 28"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M14 1H4C2.34315 1 1 2.34315 1 4V24C1 25.6569 2.34315 27 4 27H20C21.6569 27 23 25.6569 23 24V10L14 1Z"
-                  fill="#624794"
-                />
-                <path
-                  d="M14 1V8C14 9.10457 14.8954 10 16 10H23L14 1Z"
-                  fill="#D4C4FF"
-                />
-                <path
-                  d="M8.5 17.5L11 20L16 15"
-                  stroke="white"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
+        <StaggerItem>
+          <section className="flex items-center justify-between rounded-[16px] border border-[#EAE4F3] bg-white px-6 py-4 shadow-[0_4px_14px_rgba(45,10,115,0.06)]">
+            <div className="flex items-center gap-4">
+              {/* Document Check Icon */}
+              <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center text-[#5C3D99]">
+                <svg
+                  width="24"
+                  height="28"
+                  viewBox="0 0 24 28"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M14 1H4C2.34315 1 1 2.34315 1 4V24C1 25.6569 2.34315 27 4 27H20C21.6569 27 23 25.6569 23 24V10L14 1Z"
+                    fill="#624794"
+                  />
+                  <path
+                    d="M14 1V8C14 9.10457 14.8954 10 16 10H23L14 1Z"
+                    fill="#D4C4FF"
+                  />
+                  <path
+                    d="M8.5 17.5L11 20L16 15"
+                    stroke="white"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
 
-            <div>
-              <div className="text-[9px] font-semibold tracking-[0.06em] text-[#7B728E] uppercase">
-                YOU WORKED ON
-              </div>
-              <div className="mt-0.5 text-[15px] font-bold text-[#2A1163]">
-                {sessionTitle}
-              </div>
-              <div className="mt-0.5 text-[10.5px] text-[#7B728E]">
-                {(summary?.end_reason && END_REASON_TEXT[summary.end_reason]) || "Session ended by you"}
-                {summary ? ` · ${focusMinutes} min focused` : ""}
-              </div>
-              {summary && (
-                <div className="mt-0.5 text-[10px] text-[#9A90AD]">
-                  {summary.blink_count} blink{summary.blink_count === 1 ? "" : "s"} ·{" "}
-                  {summary.eye_closure_count} long eye closure{summary.eye_closure_count === 1 ? "" : "s"} · about{" "}
-                  {Math.round(summary.estimated_drowsy_seconds / 60)} min with signs of drowsiness
+              <div>
+                <div className="text-[9px] font-semibold tracking-[0.06em] text-[#7B728E] uppercase">
+                  YOU WORKED ON
                 </div>
-              )}
+                <div className="mt-0.5 text-[15px] font-bold text-[#2A1163]">
+                  {sessionTitle}
+                </div>
+                <div className="mt-0.5 text-[10.5px] text-[#7B728E]">
+                  {(summary?.end_reason && END_REASON_TEXT[summary.end_reason]) || "Session ended by you"}
+                  {summary ? ` · ${focusMinutes} min focused` : ""}
+                </div>
+                {summary && (
+                  <div className="mt-0.5 text-[10px] text-[#9A90AD] tabular-nums">
+                    {summary.blink_count} blink{summary.blink_count === 1 ? "" : "s"} ·{" "}
+                    {summary.eye_closure_count} long eye closure{summary.eye_closure_count === 1 ? "" : "s"} · about{" "}
+                    {Math.round(summary.estimated_drowsy_seconds / 60)} min with signs of drowsiness
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          <span className="text-[10.5px] font-bold text-[#2A1163]">
-            Just now
-          </span>
-        </section>
+            <span className="text-[10.5px] font-bold text-[#2A1163]">
+              Just now
+            </span>
+          </section>
+        </StaggerItem>
 
         {/* 2. THREE STAT CARDS */}
-        <section className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {/* Card 1: TOTAL YAWNS */}
-          <div className="flex flex-col justify-between rounded-[16px] border border-[#ECE6F8] bg-[#F5F1FF] p-5 shadow-[0_4px_14px_rgba(45,10,115,0.06)]">
-            <div className="text-[9.5px] font-bold tracking-[0.08em] text-[#2A1163] uppercase">
-              TOTAL YAWNS
-            </div>
+        <StaggerItem>
+          <section className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            {/* Card 1: TOTAL YAWNS */}
+            <InteractiveCard
+              lift={-2}
+              spotlightColor="rgba(255, 242, 56, 0.2)"
+              className="rounded-[16px] border border-[#ECE6F8] bg-[#F5F1FF] shadow-[0_4px_14px_rgba(45,10,115,0.06)]"
+            >
+              <div className="flex h-full flex-col justify-between p-5">
+                <div className="text-[9.5px] font-bold tracking-[0.08em] text-[#2A1163] uppercase">
+                  TOTAL YAWNS
+                </div>
 
-            <div className="my-3.5 flex items-center justify-between">
-              <div className="flex items-baseline gap-1 text-[#2A1163]">
-                <strong className="text-[28px] font-extrabold leading-none">
-                  {yawns}
-                </strong>
-                <span className="text-[12px] font-bold">X</span>
+                <div className="my-3.5 flex items-center justify-between">
+                  <div className="flex items-baseline gap-1 text-[#2A1163]">
+                    <strong className="text-[28px] font-extrabold leading-none">
+                      <AnimatedCounter value={yawns} />
+                    </strong>
+                    <span className="text-[12px] font-bold">X</span>
+                  </div>
+
+                  {/* Solid Purple Yawning Icon */}
+                  <div className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[#351080] text-white">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6.5 9.5C7.3 10.8 9.2 10.8 10 9.5"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M14 9.5C14.8 10.8 16.7 10.8 17.5 9.5"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                      />
+                      <ellipse
+                        cx="12"
+                        cy="15.8"
+                        rx="3.2"
+                        ry="4"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-[#6E6285]">
+                  Your yawns detected
+                </div>
               </div>
+            </InteractiveCard>
 
-              {/* Solid Purple Yawning Icon */}
-              <div className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[#351080] text-white">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  {/* Left sleepy closed eye */}
-                  <path
-                    d="M6.5 9.5C7.3 10.8 9.2 10.8 10 9.5"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                  {/* Right sleepy closed eye */}
-                  <path
-                    d="M14 9.5C14.8 10.8 16.7 10.8 17.5 9.5"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                  {/* Wide open yawning mouth */}
-                  <ellipse
-                    cx="12"
-                    cy="15.8"
-                    rx="3.2"
-                    ry="4"
-                    fill="currentColor"
-                  />
-                </svg>
+            {/* Card 2: DROWSINESS ALERTS */}
+            <InteractiveCard
+              lift={-2}
+              spotlightColor="rgba(255, 242, 56, 0.2)"
+              className="rounded-[16px] border border-[#ECE6F8] bg-[#F5F1FF] shadow-[0_4px_14px_rgba(45,10,115,0.06)]"
+            >
+              <div className="flex h-full flex-col justify-between p-5">
+                <div className="text-[9.5px] font-bold tracking-[0.08em] text-[#2A1163] uppercase">
+                  DROWSINESS ALERTS
+                </div>
+
+                <div className="my-3.5 flex items-center justify-between">
+                  <div className="flex items-baseline gap-1 text-[#2A1163]">
+                    <strong className="text-[28px] font-extrabold leading-none">
+                      <AnimatedCounter value={alerts} />
+                    </strong>
+                    <span className="text-[12px] font-bold">X</span>
+                  </div>
+
+                  {/* Solid Purple Exclamation Icon */}
+                  <div className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[#351080] text-white">
+                    <span className="text-[16px] font-extrabold leading-none">
+                      !
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-[#6E6285]">
+                  Gentle reminders along the way
+                </div>
               </div>
-            </div>
+            </InteractiveCard>
 
-            <div className="text-[10px] text-[#6E6285]">
-              Your yawns detected
-            </div>
-          </div>
+            {/* Card 3: BREAK TIME */}
+            <InteractiveCard
+              lift={-2}
+              spotlightColor="rgba(255, 242, 56, 0.2)"
+              className="rounded-[16px] border border-[#ECE6F8] bg-[#F5F1FF] shadow-[0_4px_14px_rgba(45,10,115,0.06)]"
+            >
+              <div className="flex h-full flex-col justify-between p-5">
+                <div className="text-[9.5px] font-bold tracking-[0.08em] text-[#2A1163] uppercase">
+                  BREAK TIME
+                </div>
 
-          {/* Card 2: DROWSINESS ALERTS */}
-          <div className="flex flex-col justify-between rounded-[16px] border border-[#ECE6F8] bg-[#F5F1FF] p-5 shadow-[0_4px_14px_rgba(45,10,115,0.06)]">
-            <div className="text-[9.5px] font-bold tracking-[0.08em] text-[#2A1163] uppercase">
-              DROWSINESS ALERTS
-            </div>
+                <div className="my-3.5 flex items-center justify-between">
+                  <div className="flex items-baseline gap-1 text-[#2A1163]">
+                    <strong className="text-[28px] font-extrabold leading-none">
+                      <AnimatedCounter value={breakMinutes} />
+                    </strong>
+                    <span className="text-[12px] font-bold">min</span>
+                  </div>
 
-            <div className="my-3.5 flex items-center justify-between">
-              <div className="flex items-baseline gap-1 text-[#2A1163]">
-                <strong className="text-[28px] font-extrabold leading-none">
-                  {alerts}
-                </strong>
-                <span className="text-[12px] font-bold">X</span>
+                  {/* Solid Purple Coffee Cup Icon */}
+                  <div className="flex h-[32px] w-[36px] items-center justify-center text-[#351080]">
+                    <svg
+                      width="34"
+                      height="32"
+                      viewBox="2 5 21 16"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M3 6H17V14C17 17.3137 14.3137 20 11 20H9C5.68629 20 3 17.3137 3 14V6Z"
+                        fill="#351080"
+                      />
+                      <path
+                        d="M17 8H19C20.6569 8 22 9.34315 22 11C22 12.6569 20.6569 14 19 14H17"
+                        stroke="#351080"
+                        strokeWidth="2.3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-[#6E6285]">
+                  Time spent resting
+                </div>
               </div>
-
-              {/* Solid Purple Exclamation Icon */}
-              <div className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[#351080] text-white">
-                <span className="text-[16px] font-extrabold leading-none">
-                  !
-                </span>
-              </div>
-            </div>
-
-            <div className="text-[10px] text-[#6E6285]">
-              Gentle reminders along the way
-            </div>
-          </div>
-
-          {/* Card 3: BREAK TIME */}
-          <div className="flex flex-col justify-between rounded-[16px] border border-[#ECE6F8] bg-[#F5F1FF] p-5 shadow-[0_4px_14px_rgba(45,10,115,0.06)]">
-            <div className="text-[9.5px] font-bold tracking-[0.08em] text-[#2A1163] uppercase">
-              BREAK TIME
-            </div>
-
-            <div className="my-3.5 flex items-center justify-between">
-              <div className="flex items-baseline gap-1 text-[#2A1163]">
-                <strong className="text-[28px] font-extrabold leading-none">
-                  {breakMinutes}
-                </strong>
-                <span className="text-[12px] font-bold">min</span>
-              </div>
-
-              {/* Solid Purple Coffee Cup Icon */}
-              <div className="flex h-[32px] w-[36px] items-center justify-center text-[#351080]">
-                <svg
-                  width="34"
-                  height="32"
-                  viewBox="2 5 21 16"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M3 6H17V14C17 17.3137 14.3137 20 11 20H9C5.68629 20 3 17.3137 3 14V6Z"
-                    fill="#351080"
-                  />
-                  <path
-                    d="M17 8H19C20.6569 8 22 9.34315 22 11C22 12.6569 20.6569 14 19 14H17"
-                    stroke="#351080"
-                    strokeWidth="2.3"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            <div className="text-[10px] text-[#6E6285]">
-              Time spent resting
-            </div>
-          </div>
-        </section>
+            </InteractiveCard>
+          </section>
+        </StaggerItem>
 
         {/* AI RECOMMENDATION (LLM backend) */}
         {summary && (
-          <AiInsightCard
-            eyebrow="FROM EYVA'S AI COACH"
-            title="A few thoughts on this session"
-            load={() => sessionsApi.insights(summary.session_id)}
-          />
+          <StaggerItem>
+            <AiInsightCard
+              eyebrow="FROM EYVA'S AI COACH"
+              title="A few thoughts on this session"
+              load={() => sessionsApi.insights(summary.session_id)}
+            />
+          </StaggerItem>
         )}
 
         {/* 3. A MOMENT TO REFLECT CARD */}
-        <section className="flex flex-col justify-between gap-4 rounded-[16px] border border-[#EAE4F3] bg-white px-6 py-4 shadow-[0_4px_14px_rgba(45,10,115,0.06)] sm:flex-row sm:items-center">
-          <div>
-            <div className="text-[9px] font-semibold tracking-[0.06em] text-[#7B728E] uppercase">
-              A MOMENT TO REFLECT
+        <StaggerItem>
+          <section className="flex flex-col justify-between gap-4 rounded-[16px] border border-[#EAE4F3] bg-white px-6 py-4 shadow-[0_4px_14px_rgba(45,10,115,0.06)] sm:flex-row sm:items-center">
+            <div>
+              <div className="text-[9px] font-semibold tracking-[0.06em] text-[#7B728E] uppercase">
+                A MOMENT TO REFLECT
+              </div>
+              <div className="mt-0.5 text-[14px] font-bold text-[#2A1163]">
+                How did this session feel?
+              </div>
+              <div className="mt-0.5 text-[10.5px] text-[#7B728E]">
+                This is just for your own reflection. No right or wrong answer.
+              </div>
             </div>
-            <div className="mt-0.5 text-[14px] font-bold text-[#2A1163]">
-              How did this session feel?
-            </div>
-            <div className="mt-0.5 text-[10.5px] text-[#7B728E]">
-              This is just for your own reflection. No right or wrong answer.
-            </div>
-          </div>
 
-          {/* Feeling Options: Good, Okay, Tough */}
-          <div className="flex items-center">
-            {(["good", "okay", "tough"] as const).map((feeling, idx) => {
-              const isSelected = selectedFeeling === feeling;
-              const isHiddenOther = collapseOthers && !isSelected;
-              const isFlyingInPopup =
-                isSelected &&
-                (popupPhase === "entering" ||
-                  popupPhase === "morphing" ||
-                  popupPhase === "pulling");
+            {/* Feeling Options: Good, Okay, Tough */}
+            <div className="flex items-center">
+              {(["good", "okay", "tough"] as const).map((feeling, idx) => {
+                const isSelected = selectedFeeling === feeling;
+                const isHiddenOther = collapseOthers && !isSelected;
+                const isFlyingInPopup =
+                  isSelected &&
+                  (popupPhase === "entering" ||
+                    popupPhase === "morphing" ||
+                    popupPhase === "pulling");
 
-              const defaultStyle =
-                feeling === "good"
-                  ? "border-[#EDE6C8] bg-[#FFFDF0] hover:border-[#351080]/50"
-                  : feeling === "okay"
-                    ? "border-[#E8E4DC] bg-[#FCFBF7] hover:border-[#351080]/50"
-                    : "border-[#DCE6F0] bg-[#F4F8FB] hover:border-[#351080]/50";
+                const defaultStyle =
+                  feeling === "good"
+                    ? "border-[#EDE6C8] bg-[#FFFDF0] hover:border-[#351080]/50"
+                    : feeling === "okay"
+                      ? "border-[#E8E4DC] bg-[#FCFBF7] hover:border-[#351080]/50"
+                      : "border-[#DCE6F0] bg-[#F4F8FB] hover:border-[#351080]/50";
 
-              return (
-                <div
-                  key={feeling}
-                  className={`overflow-hidden transition-all duration-500 ease-out ${
-                    isHiddenOther
-                      ? "ml-0 max-w-0 scale-75 opacity-0"
-                      : idx > 0 && !collapseOthers
-                        ? "ml-3 max-w-[66px] opacity-100"
-                        : "ml-0 max-w-[66px] opacity-100"
-                  }`}
-                >
-                  <button
-                    ref={isSelected ? targetSlotRef : undefined}
-                    type="button"
-                    disabled={selectedFeeling !== null}
-                    onClick={() => handleSelectFeeling(feeling)}
-                    className={`flex h-[62px] w-[66px] flex-col items-center justify-center gap-1 rounded-[10px] border transition-colors duration-300 ${
-                      isSelected
-                        ? isFlyingInPopup
-                          ? "border-dashed border-[#351080]/25 bg-[#F5F1FF]/40 opacity-30 cursor-default"
-                          : `${feelingMeta[feeling].badgeBg} ring-2 ring-[#351080]/20 cursor-default`
-                        : defaultStyle
+                return (
+                  <div
+                    key={feeling}
+                    className={`overflow-hidden transition-[margin,max-width,transform,opacity] duration-500 ease-out ${
+                      isHiddenOther
+                        ? "ml-0 max-w-0 scale-75 opacity-0"
+                        : idx > 0 && !collapseOthers
+                          ? "ml-3 max-w-[66px] opacity-100"
+                          : "ml-0 max-w-[66px] opacity-100"
                     }`}
                   >
-                    <Image
-                      src={feelingMeta[feeling].image}
-                      alt={feelingMeta[feeling].label}
-                      width={34}
-                      height={30}
-                      className={`h-auto w-[34px] transition-opacity duration-200 ${
-                        isFlyingInPopup ? "opacity-0" : "opacity-100"
-                      }`}
-                    />
-                    <span
-                      style={{ fontSize: "8.5px", fontWeight: 700 }}
-                      className={`!text-[8.5px] !font-bold text-[#2A1163] transition-opacity duration-200 ${
-                        isFlyingInPopup ? "opacity-0" : "opacity-100"
+                    <motion.button
+                      ref={isSelected ? targetSlotRef : undefined}
+                      type="button"
+                      disabled={selectedFeeling !== null}
+                      onClick={() => handleSelectFeeling(feeling)}
+                      whileHover={
+                        selectedFeeling === null && !prefersReduced
+                          ? { y: -3, scale: 1.04 }
+                          : undefined
+                      }
+                      whileTap={
+                        selectedFeeling === null && !prefersReduced
+                          ? { scale: 0.95 }
+                          : undefined
+                      }
+                      transition={EYVA_SPRING}
+                      className={`flex h-[62px] w-[66px] flex-col items-center justify-center gap-1 rounded-[10px] border transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
+                        isSelected
+                          ? isFlyingInPopup
+                            ? "cursor-default border-dashed border-[#351080]/25 bg-[#F5F1FF]/40 opacity-30"
+                            : `${feelingMeta[feeling].badgeBg} cursor-default ring-2 ring-[#351080]/20`
+                          : defaultStyle
                       }`}
                     >
-                      {feelingMeta[feeling].label}
-                    </span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                      <Image
+                        src={feelingMeta[feeling].image}
+                        alt={feelingMeta[feeling].label}
+                        width={34}
+                        height={30}
+                        className={`h-auto w-[34px] transition-opacity duration-200 ${
+                          isFlyingInPopup ? "opacity-0" : "opacity-100"
+                        }`}
+                      />
+                      <span
+                        style={{ fontSize: "8.5px", fontWeight: 700 }}
+                        className={`!text-[8.5px] !font-bold text-[#2A1163] transition-opacity duration-200 ${
+                          isFlyingInPopup ? "opacity-0" : "opacity-100"
+                        }`}
+                      >
+                        {feelingMeta[feeling].label}
+                      </span>
+                    </motion.button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </StaggerItem>
 
         {/* 4. BOTTOM ACTION BUTTONS (Revealed smoothly after expression docks into card) */}
         <div
-          className={`mt-3 flex items-center justify-center gap-4 transition-all duration-600 ease-out ${
+          className={`mt-3 flex items-center justify-center gap-4 transition-[transform,opacity] duration-600 ease-out ${
             showActionButtons
               ? "translate-y-0 opacity-100"
               : "pointer-events-none translate-y-4 opacity-0"
@@ -507,7 +553,7 @@ export default function SummaryPage() {
               fontWeight: 700,
               fontSize: "11.5px",
             }}
-            className="flex h-[42px] min-w-[172px] items-center justify-center gap-2 rounded-[9px] bg-[#624794] px-5 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#2A1163] transition hover:bg-[#553B87] active:translate-y-[1px]"
+            className="flex h-[42px] min-w-[172px] items-center justify-center gap-2 rounded-[9px] bg-[#624794] px-5 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#2A1163] transition-[background-color,transform] duration-150 hover:bg-[#553B87] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
           >
             <svg
               width="10"
@@ -529,12 +575,12 @@ export default function SummaryPage() {
               fontWeight: 700,
               fontSize: "11.5px",
             }}
-            className="flex h-[42px] min-w-[172px] items-center justify-center rounded-[9px] border border-[#EAE4F3] bg-white px-5 text-[11.5px] !font-bold !text-[#2A1163] shadow-xs transition hover:bg-[#FAF8FF] active:translate-y-[1px]"
+            className="flex h-[42px] min-w-[172px] items-center justify-center rounded-[9px] border border-[#EAE4F3] bg-white px-5 text-[11.5px] !font-bold !text-[#2A1163] shadow-xs transition-[background-color,transform] duration-150 hover:bg-[#FAF8FF] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
           >
             View history
           </Link>
         </div>
-      </div>
+      </StaggerContainer>
 
       {/* =========================================================
           POPUP REFLECTION REACTION -> MORPH -> PULLED INTO SLOT
@@ -761,6 +807,16 @@ export default function SummaryPage() {
         }
         .eyva-sparkle-2 {
           animation: eyvaSparkleFloat 1.2s ease-in-out 0.3s infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .eyva-popup-enter,
+          .eyva-dance-happy,
+          .eyva-dance-okay,
+          .eyva-dance-tough,
+          .eyva-sparkle-1,
+          .eyva-sparkle-2 {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>

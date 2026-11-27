@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import {
   BookOpen,
   Clock,
@@ -10,6 +11,7 @@ import {
   XCircle,
   ChevronRight,
 } from "lucide-react";
+import { EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 import type { StudySessionHistoryItem } from "@/types/session";
 
 interface SessionHistoryItemProps {
@@ -21,13 +23,17 @@ export default function SessionHistoryItem({
   session,
   onSelect,
 }: SessionHistoryItemProps) {
+  const prefersReduced = useReducedMotion();
   const isCompleted = session.status === "Completed";
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={() => onSelect(session)}
-      className="group flex w-full flex-col justify-between gap-3.5 rounded-[15px] border border-[#EAE4F3] bg-[#FDFCFF] px-4 py-3.5 text-left shadow-[0_3px_10px_rgba(45,10,115,0.03)] transition hover:border-[#C9B8F0] hover:bg-[#FAF7FF] sm:flex-row sm:items-center sm:px-5 sm:py-4"
+      whileHover={prefersReduced ? undefined : { y: -2 }}
+      whileTap={prefersReduced ? undefined : { scale: 0.99 }}
+      transition={EYVA_SPRING}
+      className="group flex w-full flex-col justify-between gap-3.5 rounded-[15px] border border-[#EAE4F3] bg-[#FDFCFF] px-4 py-3.5 text-left shadow-[0_3px_10px_rgba(45,10,115,0.03)] transition-[border-color,background-color,box-shadow] duration-150 hover:border-[#C9B8F0] hover:bg-[#FAF7FF] hover:shadow-[0_8px_20px_rgba(45,10,115,0.07)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] sm:flex-row sm:items-center sm:px-5 sm:py-4"
     >
       {/* Left: Icon + Title + Date & Time */}
       <div className="flex items-start gap-3.5 sm:items-center">
@@ -119,6 +125,6 @@ export default function SessionHistoryItem({
           className="shrink-0 text-[#7B728E] transition-transform group-hover:translate-x-0.5 group-hover:text-[#351080]"
         />
       </div>
-    </button>
+    </motion.button>
   );
 }

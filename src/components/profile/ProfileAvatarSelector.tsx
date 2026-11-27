@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, Sparkles } from "lucide-react";
+import { EYVA_EASE, EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 import type { AvatarOption, AvatarPath } from "@/types/profile";
 
 interface ProfileAvatarSelectorProps {
@@ -17,23 +19,40 @@ export default function ProfileAvatarSelector({
   options,
   onSelectAvatar,
 }: ProfileAvatarSelectorProps) {
+  const prefersReduced = useReducedMotion();
+
   return (
     <section
       aria-label="Profile Avatar"
-      className="rounded-[20px] border border-[#EAE4F3] bg-white p-6 sm:p-7 shadow-[0_6px_24px_rgba(45,10,115,0.05)]"
+      className="rounded-[20px] border border-[#EAE4F3] bg-white p-6 shadow-[0_6px_24px_rgba(45,10,115,0.05)] sm:p-7"
     >
       {/* Top Showcase: Current Large Avatar + Personal Greeting */}
       <div className="flex flex-col items-center gap-4 border-b border-[#F1ECF9] pb-6 sm:flex-row sm:items-center sm:gap-6">
         <div className="relative">
           <div className="h-[104px] w-[104px] overflow-hidden rounded-full border-[3px] border-[#351080] bg-[#F9E8FF] shadow-[0_10px_26px_rgba(53,16,128,0.16)]">
-            <Image
-              src={selectedAvatar}
-              alt={`${currentUsername} Avatar`}
-              width={104}
-              height={104}
-              priority
-              className="h-full w-full object-cover"
-            />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={selectedAvatar}
+                initial={
+                  prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.9 }
+                }
+                animate={{ opacity: 1, scale: 1 }}
+                exit={
+                  prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 1.05 }
+                }
+                transition={{ duration: 0.2, ease: EYVA_EASE }}
+                className="h-full w-full"
+              >
+                <Image
+                  src={selectedAvatar}
+                  alt={`${currentUsername} Avatar`}
+                  width={104}
+                  height={104}
+                  priority
+                  className="h-full w-full object-cover"
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
           <span
             title="Your Study Companion Avatar"
@@ -73,12 +92,15 @@ export default function ProfileAvatarSelector({
           {options.map((option) => {
             const isSelected = selectedAvatar === option.src;
             return (
-              <button
+              <motion.button
                 key={option.id}
                 type="button"
                 onClick={() => onSelectAvatar(option.src)}
                 aria-pressed={isSelected}
-                className={`group relative flex items-center gap-4 rounded-[16px] border p-4 text-left transition-all ${
+                whileHover={prefersReduced ? undefined : { y: -3 }}
+                whileTap={prefersReduced ? undefined : { scale: 0.98 }}
+                transition={EYVA_SPRING}
+                className={`group relative flex items-center gap-4 rounded-[16px] border p-4 text-left transition-[border-color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
                   isSelected
                     ? "border-[#351080] bg-[#F5F1FF] ring-2 ring-[#351080]/20 shadow-[0_6px_18px_rgba(53,16,128,0.08)]"
                     : "border-[#EAE4F3] bg-[#FDFCFF] hover:border-[#351080]/45 hover:bg-[#FAF7FF]"
@@ -86,7 +108,7 @@ export default function ProfileAvatarSelector({
               >
                 {/* Avatar Thumbnail */}
                 <div
-                  className={`h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[14px] border-2 transition-transform group-hover:scale-[1.03] ${
+                  className={`h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[14px] border-2 transition-transform duration-150 group-hover:scale-[1.03] ${
                     isSelected ? "border-[#351080]" : "border-[#E3DBF2]"
                   }`}
                 >
@@ -116,24 +138,26 @@ export default function ProfileAvatarSelector({
                   {/* Selected / Click to select status pill */}
                   <div className="mt-2">
                     {isSelected ? (
-                      <span
+                      <motion.span
+                        layoutId="profile-avatar-selected-pill"
+                        transition={EYVA_SPRING}
                         style={{ fontSize: "9.5px", fontWeight: 700 }}
                         className="inline-flex items-center gap-1 rounded-full bg-[#FFF238] px-2.5 py-0.5 !text-[9.5px] !font-bold text-[#2A1163]"
                       >
                         <Check size={11} strokeWidth={2.6} />
                         <span>Selected</span>
-                      </span>
+                      </motion.span>
                     ) : (
                       <span
                         style={{ fontSize: "9.5px", fontWeight: 600 }}
-                        className="inline-flex items-center rounded-full bg-[#EFEAF7] px-2.5 py-0.5 !text-[9.5px] !font-semibold text-[#6E6285] group-hover:bg-[#E4DCF5] group-hover:text-[#351080]"
+                        className="inline-flex items-center rounded-full bg-[#EFEAF7] px-2.5 py-0.5 !text-[9.5px] !font-semibold text-[#6E6285] transition-colors duration-150 group-hover:bg-[#E4DCF5] group-hover:text-[#351080]"
                       >
                         Click to choose
                       </span>
                     )}
                   </div>
                 </div>
-              </button>
+              </motion.button>
             );
           })}
         </div>

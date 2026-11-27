@@ -1,6 +1,7 @@
 
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import MotionProvider from "@/components/motion/MotionProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -10,7 +11,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "EYVA: Smart Study Companion",
-  description: "Your smart study companion.",
+  description:
+    "Stay gently aware of drowsiness while you study, take restorative breaks on time, and build steady focus habits.",
 };
 
 export default function RootLayout({
@@ -19,9 +21,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} h-full scroll-pt-24 antialiased`}>
       <body className="min-h-full flex flex-col">
-        {children}
+        <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
   );

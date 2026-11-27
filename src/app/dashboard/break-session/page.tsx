@@ -7,6 +7,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Droplet, EyeOff, Brain, Clock } from "lucide-react";
 import AiInsightCard from "@/components/ai/AiInsightCard";
 import {
+  InteractiveCard,
+  StaggerContainer,
+  StaggerItem,
+} from "@/components/motion/MotionPrimitives";
+import {
   getActiveSession,
   sessionsApi,
   setActiveSession,
@@ -271,73 +276,85 @@ export default function BreakSessionPage() {
           RIGHT COLUMN: MANDATORY BREAK TIMER + 3 STRETCH CARDS
       ========================================================= */}
       <div className="flex flex-col justify-center bg-[#FAF9F6] px-6 py-8 sm:px-10 lg:px-12">
-        <div className="mx-auto w-full max-w-[560px]">
+        <StaggerContainer className="mx-auto w-full max-w-[560px]" stagger={0.075}>
           {/* 1. MANDATORY BREAK YELLOW BANNER */}
-          <section className="relative rounded-[18px] bg-gradient-to-r from-[#FFF238] via-[#FFF677] to-[#FFFDF0] px-6 py-6 text-center shadow-[0_8px_24px_rgba(45,10,115,0.08)]">
-            {/* Small Demo Skip Button (Absolute so layout never shifts) */}
-            <button
-              type="button"
-              onClick={returnToFocus}
-              disabled={isReturning}
-              style={{
-                color: "#2A1163",
-                fontWeight: 700,
-                fontSize: "8.5px",
-              }}
-              className="absolute right-3.5 top-3.5 rounded-[7px] border border-[#2A1163]/15 bg-white/75 px-2.5 py-1 text-[8.5px] !font-bold !text-[#2A1163] backdrop-blur-xs transition-[background-color,transform] duration-150 hover:bg-white enabled:active:scale-[0.96]"
-            >
-              {isReturning ? "Resuming…" : "Skip break →"}
-            </button>
+          <StaggerItem>
+            <section className="relative rounded-[18px] bg-gradient-to-r from-[#FFF238] via-[#FFF677] to-[#FFFDF0] px-6 py-6 text-center shadow-[0_8px_24px_rgba(45,10,115,0.08)]">
+              {/* Small Demo Skip Button (Absolute so layout never shifts) */}
+              <button
+                type="button"
+                onClick={returnToFocus}
+                disabled={isReturning}
+                style={{
+                  color: "#2A1163",
+                  fontWeight: 700,
+                  fontSize: "8.5px",
+                }}
+                className="absolute top-3.5 right-3.5 rounded-[7px] border border-[#2A1163]/15 bg-white/75 px-2.5 py-1 text-[8.5px] !font-bold !text-[#2A1163] transition-[background-color,transform] duration-150 hover:bg-white motion-safe:enabled:active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080]"
+              >
+                {isReturning ? "Resuming…" : "Skip break →"}
+              </button>
 
-            <div className="text-[9.5px] font-semibold tracking-[0.06em] text-[#5E5278] uppercase">
-              MANDATORY BREAK
-            </div>
+              <div className="text-[9.5px] font-semibold tracking-[0.06em] text-[#5E5278] uppercase">
+                MANDATORY BREAK
+              </div>
 
-            <div className="mt-1 text-[46px] sm:text-[52px] font-extrabold leading-none tracking-tight text-[#2A1163]">
-              {formattedTime}
-            </div>
+              <div className="mt-1 text-[46px] font-extrabold leading-none tracking-tight text-[#2A1163] tabular-nums sm:text-[52px]">
+                {formattedTime}
+              </div>
 
-            {/* Progress Bar */}
-            <div className="mx-auto mt-3.5 h-[4px] w-full max-w-[395px] overflow-hidden rounded-full bg-[#DDD5C0]">
-              <div
-                style={{ width: `${progressPercent}%` }}
-                className="h-full rounded-full bg-gradient-to-r from-[#2A1163] via-[#5C3D99] to-[#9B6BFF] transition-[width] duration-700 ease-linear"
-              />
-            </div>
+              {/* Progress Bar */}
+              <div className="mx-auto mt-3.5 h-[4px] w-full max-w-[395px] overflow-hidden rounded-full bg-[#DDD5C0]">
+                <div
+                  style={{ width: `${progressPercent}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-[#2A1163] via-[#5C3D99] to-[#9B6BFF] transition-[width] duration-700 ease-linear"
+                />
+              </div>
 
-            {/* Auto-resume Caption */}
-            <div className="mt-2.5 inline-flex items-center justify-center gap-1.5 text-[9.5px] font-medium text-[#3F2E66]">
-              <Clock size={11} strokeWidth={2.2} className="shrink-0" />
-              <span>
-                Your study session resumes automatically when the timer ends.
-              </span>
-            </div>
-          </section>
+              {/* Auto-resume Caption */}
+              <div className="mt-2.5 inline-flex items-center justify-center gap-1.5 text-[9.5px] font-medium text-[#3F2E66]">
+                <Clock size={11} strokeWidth={2.2} className="shrink-0" />
+                <span>
+                  Your study session resumes automatically when the timer ends.
+                </span>
+              </div>
+            </section>
+          </StaggerItem>
 
           {/* AI break tip (LLM backend) */}
           {sessionId && (
-            <AiInsightCard
-              className="mt-5"
-              eyebrow="EYVA'S BREAK TIP"
-              title="For this break"
-              load={() => sessionsApi.breakTip(sessionId)}
-            />
+            <StaggerItem>
+              <AiInsightCard
+                className="mt-5"
+                eyebrow="EYVA'S BREAK TIP"
+                title="For this break"
+                load={() => sessionsApi.breakTip(sessionId)}
+              />
+            </StaggerItem>
           )}
 
           {/* 2. SECTION HEADER */}
-          <div className="mt-7 mb-4 flex items-baseline justify-between">
-            <h2 className="m-0 text-[18px] font-extrabold tracking-tight text-[#2A1163]">
-              3 little stretches
-            </h2>
-            <span className="text-[8.5px] font-semibold tracking-[0.06em] text-[#8E849E] uppercase">
-              GENTLE MOVEMENT
-            </span>
-          </div>
+          <StaggerItem>
+            <div className="mt-7 mb-4 flex items-baseline justify-between">
+              <h2 className="m-0 text-[18px] font-extrabold tracking-tight text-[#2A1163]">
+                3 little stretches
+              </h2>
+              <span className="text-[8.5px] font-semibold tracking-[0.06em] text-[#8E849E] uppercase">
+                GENTLE MOVEMENT
+              </span>
+            </div>
+          </StaggerItem>
 
           {/* 3. STRETCH CARDS LIST */}
           <div className="flex flex-col gap-4">
             {/* Stretch 01: Reach for the sky */}
-            <div className="flex items-center gap-4 rounded-[16px] border border-[#F0ECF7] bg-white p-4 shadow-[0_4px_14px_rgba(45,10,115,0.04)]">
+            <StaggerItem>
+              <InteractiveCard
+                lift={-2}
+                spotlightColor="rgba(255, 242, 56, 0.22)"
+                className="rounded-[16px] border border-[#F0ECF7] bg-white shadow-[0_4px_14px_rgba(45,10,115,0.04)]"
+              >
+                <div className="flex items-center gap-4 p-4">
               {/* Illustration 01 */}
               <div className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-[#FFF238]">
                 <svg
@@ -428,10 +445,18 @@ export default function BreakSessionPage() {
                   seconds.
                 </div>
               </div>
-            </div>
+                </div>
+              </InteractiveCard>
+            </StaggerItem>
 
             {/* Stretch 02: Shoulder rolls */}
-            <div className="flex items-center gap-4 rounded-[16px] border border-[#F0ECF7] bg-white p-4 shadow-[0_4px_14px_rgba(45,10,115,0.04)]">
+            <StaggerItem>
+              <InteractiveCard
+                lift={-2}
+                spotlightColor="rgba(232, 223, 255, 0.35)"
+                className="rounded-[16px] border border-[#F0ECF7] bg-white shadow-[0_4px_14px_rgba(45,10,115,0.04)]"
+              >
+                <div className="flex items-center gap-4 p-4">
               {/* Illustration 02 */}
               <div className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-[#E8DFFF]">
                 <svg
@@ -533,10 +558,18 @@ export default function BreakSessionPage() {
                   Roll your shoulders back slowly, then relax. Repeat 5 times.
                 </div>
               </div>
-            </div>
+                </div>
+              </InteractiveCard>
+            </StaggerItem>
 
             {/* Stretch 03: Gentle neck stretch */}
-            <div className="flex items-center gap-4 rounded-[16px] border border-[#F0ECF7] bg-white p-4 shadow-[0_4px_14px_rgba(45,10,115,0.04)]">
+            <StaggerItem>
+              <InteractiveCard
+                lift={-2}
+                spotlightColor="rgba(252, 226, 240, 0.35)"
+                className="rounded-[16px] border border-[#F0ECF7] bg-white shadow-[0_4px_14px_rgba(45,10,115,0.04)]"
+              >
+                <div className="flex items-center gap-4 p-4">
               {/* Illustration 03 */}
               <div className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-[#FCE2F0]">
                 <svg
@@ -636,9 +669,11 @@ export default function BreakSessionPage() {
                   seconds per side.
                 </div>
               </div>
-            </div>
+                </div>
+              </InteractiveCard>
+            </StaggerItem>
           </div>
-        </div>
+        </StaggerContainer>
       </div>
 
       {/* =========================================================
@@ -886,6 +921,23 @@ export default function BreakSessionPage() {
         .eyva-coffee-sparkle {
           transform-origin: 442px 221px;
           animation: eyvaCoffeeSparkle 2.8s ease-in-out infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .eyva-reach-body,
+          .eyva-reach-arm-left,
+          .eyva-reach-arm-right,
+          .eyva-stretch-arrows,
+          .eyva-shoulder-left,
+          .eyva-shoulder-right,
+          .eyva-shoulder-torso,
+          .eyva-roll-arrows,
+          .eyva-neck-tilt,
+          .eyva-neck-arrow,
+          .eyva-steam-wave-1,
+          .eyva-steam-wave-2,
+          .eyva-coffee-sparkle {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>

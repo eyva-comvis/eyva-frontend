@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { User, Mail, Lock, CheckCircle2, AlertCircle, Save } from "lucide-react";
+import { EYVA_EASE, TactileButton } from "@/components/motion/MotionPrimitives";
 import { ApiError, errorMessage } from "@/services/api/client";
 import { USERNAME_HINT, USERNAME_PATTERN } from "@/lib/validation";
 
@@ -18,6 +20,7 @@ export default function ProfileInfoForm({
   hasAvatarChanged,
   onSaveProfile,
 }: ProfileInfoFormProps) {
+  const prefersReduced = useReducedMotion();
   const [usernameInput, setUsernameInput] = useState(currentUsername);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -124,15 +127,25 @@ export default function ProfileInfoForm({
           </div>
 
           {/* Validation Error Banner */}
-          {validationError && (
-            <div
-              role="alert"
-              className="mt-2 flex items-center gap-1.5 rounded-[9px] border border-[#F5D0DC] bg-[#FDF2F6] px-3 py-2 text-[10.5px] font-semibold text-[#A3365C]"
-            >
-              <AlertCircle size={13} strokeWidth={2.2} className="shrink-0" />
-              <span>{validationError}</span>
-            </div>
-          )}
+          <AnimatePresence>
+            {validationError && (
+              <motion.div
+                role="alert"
+                initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                animate={
+                  prefersReduced
+                    ? { opacity: 1, y: 0 }
+                    : { opacity: 1, y: 0, x: [0, -5, 5, -3, 3, 0] }
+                }
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.25, ease: EYVA_EASE }}
+                className="mt-2 flex items-center gap-1.5 rounded-[9px] border border-[#F5D0DC] bg-[#FDF2F6] px-3 py-2 text-[10.5px] font-semibold text-[#A3365C]"
+              >
+                <AlertCircle size={13} strokeWidth={2.2} className="shrink-0" />
+                <span>{validationError}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* 2. Email Address Field (Read-Only) */}
@@ -169,22 +182,38 @@ export default function ProfileInfoForm({
 
         {/* Save Feedback + Save Changes Button */}
         <div className="flex flex-col items-stretch justify-between gap-3 border-t border-[#F1ECF9] pt-4 sm:flex-row sm:items-center">
-          <div className="min-h-[20px]">
-            {saveSuccess ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFE9FF] px-3 py-1 text-[10.5px] font-bold text-[#351080]">
-                <CheckCircle2 size={13} strokeWidth={2.3} />
-                <span>Changes saved! Your greeting & avatar are updated.</span>
-              </span>
-            ) : (
-              <span className="text-[10.5px] text-[#7B728E]">
-                {isDirty
-                  ? "You have unsaved profile changes."
-                  : "Your profile is up to date."}
-              </span>
-            )}
+          <div className="min-h-[24px]">
+            <AnimatePresence mode="wait" initial={false}>
+              {saveSuccess ? (
+                <motion.span
+                  key="saved"
+                  initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.2, ease: EYVA_EASE }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#EFE9FF] px-3 py-1 text-[10.5px] font-bold text-[#351080]"
+                >
+                  <CheckCircle2 size={13} strokeWidth={2.3} />
+                  <span>Changes saved! Your greeting &amp; avatar are updated.</span>
+                </motion.span>
+              ) : (
+                <motion.span
+                  key={isDirty ? "dirty" : "clean"}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.16 }}
+                  className="text-[10.5px] text-[#7B728E]"
+                >
+                  {isDirty
+                    ? "You have unsaved profile changes."
+                    : "Your profile is up to date."}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </div>
 
-          <button
+          <TactileButton
             type="submit"
             disabled={isSaving}
             style={{
@@ -192,11 +221,11 @@ export default function ProfileInfoForm({
               fontWeight: 700,
               fontSize: "11.5px",
             }}
-            className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border-0 bg-[#351080] px-6 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#220856] transition hover:bg-[#43189E] active:translate-y-[1px] disabled:opacity-60"
+            className="inline-flex h-[40px] items-center justify-center gap-2 rounded-[10px] border-0 bg-[#351080] px-6 text-[11.5px] !font-bold !text-white shadow-[0_3px_0_#220856] transition-colors duration-150 hover:bg-[#43189E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] disabled:opacity-60"
           >
             <Save size={14} strokeWidth={2.2} />
             <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-          </button>
+          </TactileButton>
         </div>
       </form>
     </section>

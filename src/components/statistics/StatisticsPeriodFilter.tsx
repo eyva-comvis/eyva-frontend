@@ -1,6 +1,8 @@
 "use client";
 
+import { motion } from "motion/react";
 import { CalendarRange } from "lucide-react";
+import { EYVA_SPRING } from "@/components/motion/MotionPrimitives";
 import type { StatisticsPeriod } from "@/types/statistics";
 
 interface StatisticsPeriodFilterProps {
@@ -55,13 +57,21 @@ export default function StatisticsPeriodFilter({
                 fontWeight: 700,
                 color: isActive ? "#FFFFFF" : "#351080",
               }}
-              className={`rounded-full px-4 py-1.5 text-[11px] !font-bold transition-all ${
+              className={`relative rounded-full px-4 py-1.5 text-[11px] !font-bold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#351080] ${
                 isActive
-                  ? "bg-[#351080] !text-white shadow-xs"
+                  ? "!text-white"
                   : "bg-transparent !text-[#351080] hover:bg-[#EAE1FF]"
               }`}
             >
-              {option.label}
+              {isActive && (
+                <motion.span
+                  layoutId="eyva-stats-period-pill"
+                  transition={EYVA_SPRING}
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-[#351080] shadow-xs"
+                />
+              )}
+              <span className="relative z-10">{option.label}</span>
             </button>
           );
         })}
